@@ -1,0 +1,223 @@
+{% extends 'frontend/layout.html' %}
+{% load static %}
+
+
+{% block content %}
+
+<div class="bg-container">
+    <style>
+        .bg-container {
+            position: relative;
+            overflow: hidden;
+            min-height: 100vh;
+        }
+        .bg-container .bg-video {
+            position: fixed;
+            inset: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -1;
+            pointer-events: none;
+        }
+        .bg-container .bg-video video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: translateZ(0);
+        }
+        .bg-container > :not(.bg-video) {
+            position: relative;
+            z-index: 1;
+        }
+    </style>
+    <div class="bg-video" aria-hidden="true">
+        <video autoplay muted loop playsinline>
+            <source src="{% static 'frontend/assets/video/bg.mp4' %}" type="video/mp4">
+        </video>
+    </div>
+    <header class="pt-5">
+        <div class="container pt-4 pt-xl-5">
+            <div class="row pt-5">
+                <div class="col-md-8 text-center text-md-start mx-auto">
+                    <div class="text-center">
+                        <h1 class="display-4 fw-bold mb-5">Welcome to the&nbsp;<span class="underline" style="border-radius: 2px;border-bottom-style: dashed;"><span style="color: rgb(74, 46, 95);">Dean's</span></span>&nbsp;List Council.</h1>
+                        <p class="fs-5 text-muted mb-5">Brains, Bonding, and Beyond, Where Excellence Meets Enjoyment!</p>
+                    </div>
+                </div>
+                <div class="col-12 col-lg-10 mx-auto">
+                    <div class="text-center position-relative"><img class="img-fluid" src="{% static 'frontend/assets/img/DLCLogo.png' %}" style="width: 800px;"></div>
+                </div>
+            </div>
+        </div>
+    </header>
+    <section>
+    
+    <div class="social-media-area" style="position: relative; z-index: 2; width: fit-content; margin: 0 auto; border-radius: 10px; padding: 20px;">
+
+        
+        <div class="container py-4 py-xl-5">
+            <div class="row">
+                <div class="col-md-6">
+                    <h3 class="display-6 fw-bold pb-md-4">Our Social Media&nbsp;<span class="underline">Platforms</span></h3>
+                </div>
+                <div class="col-md-6 pt-4">
+                    <p class="text-muted mb-4">Ways to reach us, connect with us, monitor our events and more!</p>
+                </div>
+            </div>
+            <div class="row gy-4 gy-md-0">
+                <div class="col-md-6 d-flex d-sm-flex d-md-flex justify-content-center align-items-center justify-content-md-start align-items-md-center justify-content-xl-center">
+
+                    <div style="padding: 20px; background-color: rgba(255, 255, 255, 0.8);">
+                        <div class="row gy-2 row-cols-1 row-cols-sm-2">
+                            <div class="col text-center text-md-start">
+                                <div id="instagram" class="d-flex justify-content-center align-items-center justify-content-md-start">
+                                    <a href="https://www.instagram.com/dlccba/" target="_blank">
+                                    <button>
+                                        <svg viewBox="0 0 16 16" class="bi bi-instagram" fill="currentColor" height="16" width="16" xmlns="http://www.w3.org/2000/svg"> <path d="M8 0C5.829 0 5.556.01 4.703.048 3.85.088 3.269.222 2.76.42a3.917 3.917 0 0 0-1.417.923A3.927 3.927 0 0 0 .42 2.76C.222 3.268.087 3.85.048 4.7.01 5.555 0 5.827 0 8.001c0 2.172.01 2.444.048 3.297.04.852.174 1.433.372 1.942.205.526.478.972.923 1.417.444.445.89.719 1.416.923.51.198 1.09.333 1.942.372C5.555 15.99 5.827 16 8 16s2.444-.01 3.298-.048c.851-.04 1.434-.174 1.943-.372a3.916 3.916 0 0 0 1.416-.923c.445-.445.718-.891.923-1.417.197-.509.332-1.09.372-1.942C15.99 10.445 16 10.173 16 8s-.01-2.445-.048-3.299c-.04-.851-.175-1.433-.372-1.941a3.926 3.926 0 0 0-.923-1.417A3.911 3.911 0 0 0 13.24.42c-.51-.198-1.092-.333-1.943-.372C10.443.01 10.172 0 7.998 0h.003zm-.717 1.442h.718c2.136 0 2.389.007 3.232.046.78.035 1.204.166 1.486.275.373.145.64.319.92.599.28.28.453.546.598.92.11.281.24.705.275 1.485.039.843.047 1.096.047 3.231s-.008 2.389-.047 3.232c-.035.78-.166 1.203-.275 1.485a2.47 2.47 0 0 1-.599.919c-.28.28-.546.453-.92.598-.28.11-.704.24-1.485.276-.843.038-1.096.047-3.232.047s-2.39-.009-3.233-.047c-.78-.036-1.203-.166-1.485-.276a2.478 2.478 0 0 1-.92-.598 2.48 2.48 0 0 1-.6-.92c-.109-.281-.24-.705-.275-1.485-.038-.843-.046-1.096-.046-3.233 0-2.136.008-2.388.046-3.231.036-.78.166-1.204.276-1.486.145-.373.319-.64.599-.92.28-.28.546-.453.92-.598.282-.11.705-.24 1.485-.276.738-.034 1.024-.044 2.515-.045v.002zm4.988 1.328a.96.96 0 1 0 0 1.92.96.96 0 0 0 0-1.92zm-4.27 1.122a4.109 4.109 0 1 0 0 8.217 4.109 4.109 0 0 0 0-8.217zm0 1.441a2.667 2.667 0 1 1 0 5.334 2.667 2.667 0 0 1 0-5.334z"></path> </svg>
+                                          <span>Instragram</span>
+                                    </button> 
+                                    </a>
+                                </div>
+                            </div>
+                            <div class="col text-center text-md-start">
+                                <div id="twitter" class="d-flex justify-content-center align-items-center justify-content-md-start">
+                                    <a href="https://x.com/dlccba" target="_blank">
+                                    <button>
+                                    <svg viewBox="0 0 16 16" class="bi bi-twitter" fill="currentColor" height="18" width="18" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M5.026 15c6.038 0 9.341-5.003 9.341-9.334 0-.14 0-.282-.006-.422A6.685 6.685 0 0 0 16 3.542a6.658 6.658 0 0 1-1.889.518 3.301 3.301 0 0 0 1.447-1.817 6.533 6.533 0 0 1-2.087.793A3.286 3.286 0 0 0 7.875 6.03a9.325 9.325 0 0 1-6.767-3.429 3.289 3.289 0 0 0 1.018 4.382A3.323 3.323 0 0 1 .64 6.575v.045a3.288 3.288 0 0 0 2.632 3.218 3.203 3.203 0 0 1-.865.115 3.23 3.23 0 0 1-.614-.057 3.283 3.283 0 0 0 3.067 2.277A6.588 6.588 0 0 1 .78 13.58a6.32 6.32 0 0 1-.78-.045A9.344 9.344 0 0 0 5.026 15z"></path>
+                                    </svg>
+                                    <span>X (Twitter)</span>
+                                </button>
+                            </a>
+                                </div>
+                            </div>
+                            <div class="col text-center text-md-start">
+                                <div id="tiktok" class="d-flex justify-content-center align-items-center justify-content-md-start">
+                                    <a href="https://www.tiktok.com/@dlccba" target="_blank">
+                                    <button>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-tiktok" viewBox="0 0 16 16">
+                                        <path d="M9 0h1.98c.144.715.54 1.617 1.235 2.512C12.895 3.389 13.797 4 15 4v2c-1.753 0-3.07-.814-4-1.829V11a5 5 0 1 1-5-5v2a3 3 0 1 0 3 3z"/>
+                                      </svg>
+                                      <span>TikTok</span>
+                                    </button>
+                                    </a>
+                                </div>
+                            </div>
+                            <div class="col text-center text-md-start">
+                                <div id="threads" class="d-flex justify-content-center align-items-center justify-content-md-start">
+                                    <a href="https://www.threads.com/@ikhlas_dlc_cba" target="_blank">
+                                    <button>
+                                        <svg
+                                          viewBox="0 0 26 26"
+                                          fill="currentColor"
+                                          height="28"
+                                          width="28"
+                                          xmlns="http://www.w3.org/2000/svg"
+                                        >
+                                          <path
+                                            d="M16.7051 11.1081C16.543 8.12137 14.911 6.41148 12.1708 6.39398C10.5193 6.3838 9.13771 7.08389 8.29233 8.36664L9.79941 9.40046C10.4334 8.43852 11.4342 8.24015 12.1593 8.24685C13.0616 8.2526 13.7425 8.51494 14.1832 9.02653C14.5038 9.39899 14.7183 9.91367 14.8245 10.5632C14.0246 10.4273 13.1594 10.3855 12.2345 10.4385C9.62919 10.5886 7.95426 12.1081 8.06675 14.2194C8.12384 15.2904 8.65739 16.2118 9.56906 16.8137C10.3399 17.3225 11.3326 17.5713 12.3644 17.515C13.727 17.4403 14.7959 16.9205 15.5416 15.9699C16.1079 15.248 16.4661 14.3125 16.6243 13.1338C17.2737 13.5257 17.7549 14.0414 18.0207 14.6613C18.4726 15.7151 18.499 17.4469 17.086 18.8587C15.848 20.0955 14.3598 20.6306 12.1108 20.6471C9.61601 20.6286 7.72924 19.8285 6.50253 18.269C5.35381 16.8088 4.76014 14.6996 4.73799 12C4.76014 9.30038 5.35381 7.19117 6.50253 5.73092C7.72924 4.17147 9.61597 3.37141 12.1107 3.35287C14.6236 3.37155 16.5433 4.17547 17.8169 5.74244C18.4415 6.51086 18.9123 7.47721 19.2227 8.60394L20.9888 8.13274C20.6125 6.74587 20.0205 5.55078 19.2148 4.55966C17.582 2.55073 15.1816 1.52134 12.1046 1.5C9.03385 1.52127 6.6725 2.55457 5.08614 4.57117C3.67451 6.3657 2.94634 8.87742 2.92188 12.0074C2.94634 15.1373 3.67451 17.6343 5.08614 19.4289C6.6725 21.4454 9.04616 22.4788 12.1169 22.5C14.847 22.4811 16.7713 21.7663 18.3566 20.1825C20.4307 18.1103 20.3682 15.513 19.6846 13.9185C19.1595 12.6943 18.1141 11.7129 16.7051 11.1081ZM12.2669 15.6648C11.125 15.7291 9.93869 15.2166 9.88019 14.1188C9.83684 13.3048 10.4595 12.3966 12.3369 12.2884C13.2594 12.2352 14.1138 12.2976 14.8701 12.463C14.6538 15.1648 13.3848 15.6035 12.2669 15.6648Z"
+                                          ></path>
+                                        </svg>
+                                        <span>Threads</span>
+                                      </button>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 order-first order-md-last">
+                    <div><img class="rounded img-fluid w-100 fit-cover" style="min-height: 300px;border-radius: 10px; border: 1px solid #000000;background-color: rgba(216, 216, 216, 0.5); filter: invert(0%) ;color: rgb(255,255,255);" src="{% static 'frontend/assets/img/reach.png' %}"></div>
+                </div>
+            </div>
+            </div>
+    </div>
+</section>
+    <section class="py-4 py-xl-5">
+        <div class="container">
+            <div class="bg-primary border rounded border-0 border-primary overflow-hidden">
+                <div class="row g-0">
+                    <div class="col-md-6 d-flex flex-column justify-content-center" style="background: #4a2e5f;">
+                        <div class="text-white p-4 p-md-5">
+                            <h2 class="fw-bold mb-3">Apply for the Membership of the DLC</h2>
+                            <p class="mb-4">Applying students must ensure the following before clicking below:</p>
+                            <ul>
+                                <li>Student must be a full-time student at CBA</li>
+                                <li>GPA must be 3.5 or Greater</li>
+                                <li>Have atleast 30 credits in total at the time of application</li>
+                            </ul>
+                            <div id="applyhome" class="my-3">
+                                <a href="{% url 'apply' %}">
+                                <div class="btn"><span data-text="Apply">Apply</span></div>
+                            </a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 order-first order-md-last" style="min-height: 250px;"><img class="w-100 h-100 pt-5 pt-md-0 fit-contain" alt="member, group, people, member, member, member, member, member, group, people" src="{% static 'frontend/assets/img/g942002e170fcd419c56b9aedde175b21e6db41a1b9f4fb8c057816b6873f298183dfa75ab62302a3405e22e3e20f8ae3_640.png' %}" style="filter: invert(0%) saturate(100%);color: rgb(255,255,255);background: rgb(74,46,95);"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+    <section class="py-5">
+        <div class="container py-4 py-xl-5">
+            <div class="row mb-5">
+                <div class="col-md-8 col-xl-6 text-center mx-auto">
+                    <h2 class="display-6 fw-bold mb-4">About<br>The&nbsp;<span class="underline">DLC</span></h2>
+                    <p class="text-muted"><span style="color: rgb(9, 69, 111);">The Dean’s list council was established in 1998. The members of the List Council are high-profile students, distinct and successful in their studies and thus meriting recognition by the Dean.&nbsp;The main goals of the Council are to create a sense of effective competition among students, encourage honor students to excel in CBA, build a stronger relationship between faculty, administration and students and -above all -provide suggestions, opinions and complaints of honor students about academic issues and faculty, important feedback in continuous improvement at CBA.</span></p>
+                </div>
+            </div>
+        </div>
+    </section>
+    <section class="mb-5 py-4 py-xl-5">
+        <div class="container">
+            <div class="row mb-2">
+                <div class="col-md-8 col-xl-6 text-center mx-auto">
+                    <h2 class="display-6 fw-bold mb-5"><span class="pb-3 underline">FAQ<br></span></h2>
+                    <p class="text-muted mb-5">These are questions that we get asked most.</p>
+                </div>
+            </div>
+            <div class="row mb-2">
+                <div class="col-md-8 mx-auto">
+                    <div class="accordion text-muted" role="tablist" id="accordion-1">
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" role="tab"><button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#accordion-1 .item-1" aria-expanded="true" aria-controls="accordion-1 .item-1" style="text-align: right;">متى نقدر نقدم على اللجنة؟&nbsp;&nbsp;</button></h2>
+                            <div class="accordion-collapse collapse show item-1" role="tabpanel" data-bs-parent="#accordion-1">
+                                <div class="accordion-body">
+                                    <p style="text-align: right;">التقديم مفتوح للطلبة في بداية كل فصل دراسي اعتيادي حسب الشواغر</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" role="tab"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#accordion-1 .item-2" aria-expanded="false" aria-controls="accordion-1 .item-2">Lorem quam erat placerat mollis, rhoncus senectus?</button></h2>
+                            <div class="accordion-collapse collapse item-2" role="tabpanel" data-bs-parent="#accordion-1">
+                                <div class="accordion-body">
+                                    <p class="mb-0">Nullam id dolor id nibh ultricies vehicula ut id elit. Cras justo odio, dapibus ac facilisis in, egestas eget quam. Donec id elit non mi porta gravida at eget metus.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" role="tab"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#accordion-1 .item-3" aria-expanded="false" aria-controls="accordion-1 .item-3">Iaculis accumsan id, facilisis proin ipsum velit neque?</button></h2>
+                            <div class="accordion-collapse collapse item-3" role="tabpanel" data-bs-parent="#accordion-1">
+                                <div class="accordion-body">
+                                    <p class="mb-0">Nullam id dolor id nibh ultricies vehicula ut id elit. Cras justo odio, dapibus ac facilisis in, egestas eget quam. Donec id elit non mi porta gravida at eget metus.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    <section class="py-4 py-xl-5">
+        <div class="container">
+            <div class="text-white bg-primary border rounded border-0 border-primary d-flex flex-column justify-content-between flex-lg-row p-4 p-md-5">
+                <div class="pb-2 pb-lg-1">
+                    <h2 class="fw-bold text-secondary mb-2">Not sure which plan suits you?</h2>
+                    <p class="mb-0">Imperdiet consectetur dolor, tristique himenaeos ultrices tristique neque.</p>
+                </div>
+                <div class="my-2"><a class="btn btn-light fs-5 px-4 py-2" role="button" href="contact.html">Contact us</a></div>
+            </div>
+        </div>
+    </section>
+</div>
+{% endblock %}
