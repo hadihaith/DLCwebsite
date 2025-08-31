@@ -18,20 +18,17 @@ from pathlib import Path
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-env = environ.Env()
 
-# Read the .env file
-environ.Env.read_env()
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = env('SECRET_KEY',  'django-insecure-86162mfuujat(l3&k)8@mgv@@43(r226!n=%s2a+v-vuuz9^@q')
+SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-86162mfuujat(l3&k)8@mgv@@43(r226!n=%s2a+v-vuuz9^@q')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = env('DEBUG', 'RENDER' not in os.environ and 'RAILWAY' not in os.environ)
+DEBUG = 'RENDER' not in os.environ and 'RAILWAY' not in os.environ
 
-ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['localhost', '127.0.0.1'])
+ALLOWED_HOSTS = []
 RAILWAY_ENV = os.environ.get('RAILWAY_ENVIRONMENT', '')
 if RAILWAY_ENV == 'production' or RAILWAY_ENV == 'development':
     RENDER_EXTERNAL_HOSTNAME = os.environ.get('RAILWAY_STATIC_URL')
