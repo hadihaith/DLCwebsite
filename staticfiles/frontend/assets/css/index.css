@@ -1,0 +1,159 @@
+/* --- General Calendar Container Styling --- */
+.sui-calendar {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  margin-bottom: 0;
+}
+
+.sui-calendar .group-container {
+  display: grid;
+  grid-template-columns: auto 1fr; /* Date badges on left, content on right */
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 0;
+  border-bottom: 1px solid #e2e8f0; /* Subtle separator between items */
+  min-height: 60px; /* Minimum height for consistent row sizing */
+}
+
+.sui-calendar .group-container:hover {
+  background-color: #f8fafc;
+}
+
+/* --- Date Badge Styling - Compact Horizontal --- */
+.sui-calendar-dates {
+  display: flex;
+  flex-direction: row; /* Dates side by side */
+  gap: 0.5rem;
+  min-width: 100px;
+  justify-self: center;
+}
+
+.sui-calendar-dates span {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  border-radius: 6px;
+  padding: 0.5rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  line-height: 1.1;
+  background: linear-gradient(145deg, #000000, #6c006346);
+  color: white;
+  min-width: 50px; /* Fixed width for consistent sizing */
+}
+
+.sui-calendar-dates span div {
+  font-weight: 600;
+}
+
+.sui-calendar-dates span div:first-child {
+  font-size: 0.75em;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.sui-calendar-dates span div:last-child {
+  font-size: 1.1em;
+}
+
+/* --- Content Area Styling - Compact --- */
+.sui-calendar-content-wrapper {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 50px;
+}
+
+.sui-calendar-body {
+  margin-bottom: 0.25rem;
+}
+
+.sui-calendar-body h2 {
+  color: #1e293b;
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.3;
+  font-weight: 600;
+}
+
+/* --- Date Styling - Inline Format --- */
+.sui-calendar-content {
+  font-size: 0.85em;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0;
+}
+
+/* Single date styling */
+.sui-calendar-content .single-date::before {
+  content: "On: ";
+  font-weight: 600;
+  color: #475569;
+}
+
+/* Date range styling */
+.sui-calendar-content .date-range {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.sui-calendar-content .date-from::before {
+  content: "From: ";
+  font-weight: 600;
+  color: #475569;
+}
+
+.sui-calendar-content .date-to::before {
+  content: "→ To: ";
+  font-weight: 600;
+  color: #475569;
+}
+
+/* --- Semester Title Styling --- */
+.field--name-field-seeds-title h2 {
+  color: #a30d8c;
+  border-bottom: 2px solid #e2e8f0;
+  padding-bottom: 0.5rem;
+  margin-top: 2rem;
+  margin-bottom: 0.5rem;
+  font-size: 1.25rem;
+}
+
+/* --- Responsive Adjustments --- */
+@media (max-width: 768px) {
+  .sui-calendar .group-container {
+    grid-template-columns: 1fr; /* Stack on mobile */
+    gap: 0.5rem;
+    text-align: center;
+  }
+  
+  .sui-calendar-dates {
+    justify-self: center;
+    margin-bottom: 0.25rem;
+  }
+  
+  .sui-calendar-content {
+    justify-content: center;
+    text-align: center;
+  }
+  
+  .sui-calendar-content .date-range {
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  
+  .sui-calendar-content .date-to::before {
+    content: "To: ";
+  }
+  
+  .sui-calendar-body h2 {
+    font-size: 0.95rem;
+  }
+}
+
+/* Remove borders from last item in each section */
+.field--name-field-paragraph .field__item:last-child .sui-calendar .group-container {
+  border-bottom: none;
+}
