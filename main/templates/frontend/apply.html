@@ -1,0 +1,68 @@
+{% extends 'frontend/layout.html' %}
+{% load static %}
+
+
+{% block title %}Apply - Dean's List Council{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{% static 'frontend/assets/css/apply.css' %}">
+<div class="apply-container">
+    {% if error %}
+    <div class="alert alert-danger" style="text-align: center; margin-top: 15px;" role="alert">
+        {{ error }}
+    </div>
+    {% endif %}
+<section class="py-5" style="padding-top: 120px !important;">
+    <div class="container" style="background-color: rgba(0, 0, 0, 0.6); padding: 20px; border-radius: 10px; color: white;">
+        <div class="row">
+            <div class="col-12 col-lg-10 mx-auto">
+                <h1 class="text-center mb-4">Apply to Join the Dean's List Council</h1>
+                <p class="text-center mb-4">We are always looking for passionate and dedicated individuals to join our team. If you are interested in making a difference in the college community, please fill out the application form below.</p>
+                <form method="post" action="{% url 'apply' %}">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Full Name</label>
+                        <input type="text" class="form-control" id="name" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="student_id" class="form-label">Student ID</label>
+                        <input type="text" class="form-control" id="student_id" name="student_id" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="phone" class="form-label">Phone Number</label>
+                        <input type="tel" class="form-control" id="phone" name="phone" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email Address</label>
+                        <input type="email" class="form-control" id="email" name="email" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="GPA" class="form-label">GPA</label>
+                        <input type="number" class="form-control" id="GPA" name="GPA" step="0.01" min="0" max="4.00" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="major" class="form-label">Major</label>
+                        <select class="form-select" id="major" name="major" required>
+                            <option value="">Select your major</option>
+                            <option value="FIN">Finance</option>
+                            <option value="MIS">Management Information Systems</option>
+                            <option value="MKT">Marketing</option>
+                            <option value="MGT">Management</option>
+                            <option value="ACC">Accounting</option>
+                            <option value="ECO">Economics</option>
+                            <option value="PMGT">Public Management</option>
+                            <option value="OM">Operations Management</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="anything_else" class="form-label">Additional Information (Optional)</label>
+                        <textarea class="form-control" id="anything_else" name="anything_else" rows="4" placeholder="Any additional information you'd like to share with us..."></textarea>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Submit Application</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</section>
+</div>
+{% endblock %}

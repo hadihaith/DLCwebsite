@@ -1,0 +1,36 @@
+{% extends 'frontend/layout.html' %}
+{% load static %}
+
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'frontend/assets/css/success.css' %}">
+<div class="container1" style="min-height: 100vh; background-color: #4A2E5F; padding-top: 120px; padding-bottom: 50px;">
+<div class="container" style="margin-top: 50px; min-height: 80%;">
+    <div style="display: flex; justify-content: center; align-items: center; margin-bottom: 20px;">
+    <div aria-label="Orange and tan hamster running in a metal wheel" role="img" class="wheel-and-hamster">
+	<div class="wheel"></div>
+	<div class="hamster">
+		<div class="hamster__body">
+			<div class="hamster__head">
+				<div class="hamster__ear"></div>
+				<div class="hamster__eye"></div>
+				<div class="hamster__nose"></div>
+			</div>
+			<div class="hamster__limb hamster__limb--fr"></div>
+			<div class="hamster__limb hamster__limb--fl"></div>
+			<div class="hamster__limb hamster__limb--br"></div>
+			<div class="hamster__limb hamster__limb--bl"></div>
+			<div class="hamster__tail"></div>
+		</div>
+	</div>
+	<div class="spoke"></div>
+    </div>
+</div>
+    <h1 class="text-center" style="color: white; font-weight: bold;">Application Submitted Successfully</h1>
+    <p class="text-center" style="color: white; font-weight: bold;">Thank you for your application, {{ application.name }}! We will review your application and get back to you soon.</p>
+    <div style="display: flex; justify-content: center; align-items: center; margin-top: 20px;">
+    <a href="{% url 'home' %}" class="btn btn-primary">Return Home</a>
+    </div>
+</div>
+</div>
+{% endblock %}
