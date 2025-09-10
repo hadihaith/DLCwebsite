@@ -1,18 +1,68 @@
 .e-card {
-  margin: 100px auto;
+  margin: 8px 6px;
   background: transparent;
   box-shadow: 0px 8px 28px -9px rgba(0,0,0,0.45);
   position: relative;
-  width: 240px;
-  height: 330px;
+  width: 180px;
+  height: 250px;
   border-radius: 16px;
   overflow: hidden;
+  flex: 0 0 auto;
+}
+
+
+@media (min-width: 1200px) {
+  .e-card {
+    width: 200px;
+    height: 280px;
+    margin: 12px 8px;
+  }
+}
+
+@media (min-width: 1400px) {
+  .e-card {
+    width: 220px;
+    height: 300px;
+    margin: 15px 10px;
+  }
+}
+
+@media (min-width: 1600px) {
+  .e-card {
+    width: 200px;
+    height: 280px;
+    margin: 12px 8px;
+  }
+}
+
+@media (max-width: 1199px) {
+  .e-card {
+    width: 180px;
+    height: 250px;
+    margin: 10px 6px;
+  }
+}
+
+@media (max-width: 768px) {
+  .e-card {
+    width: 160px;
+    height: 230px;
+    margin: 8px 5px;
+  }
+}
+
+@media (max-width: 480px) {
+  .e-card {
+    width: 140px;
+    height: 210px;
+    margin: 6px 3px;
+  }
 }
 
 .wave {
   position: absolute;
-  width: 540px;
-  height: 700px;
+  width: 450px;
+  height: 600px;
   opacity: 0.6;
   left: 0;
   top: 0;
@@ -29,9 +79,9 @@
 
 .infotop {
   text-align: center;
-  font-size: 20px;
+  font-size: 18px;
   position: absolute;
-  top: 5.6em;
+  top: 4.8em;
   left: 0;
   right: 0;
   color: rgb(255, 255, 255);
@@ -39,7 +89,7 @@
 }
 
 .name {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 100;
   position: relative;
   top: 1em;
@@ -47,7 +97,7 @@
 
 .wave:nth-child(2),
 .wave:nth-child(3) {
-  top: 210px;
+  top: 180px;
 }
 
 .playing .wave {

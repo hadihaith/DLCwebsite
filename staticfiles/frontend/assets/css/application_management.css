@@ -1,0 +1,498 @@
+/* Application Management Styles */
+.application-management-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.management-header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.management-header h2 {
+    color: #333;
+    margin-bottom: 10px;
+    font-size: 2em;
+}
+
+.management-header p {
+    color: #666;
+    font-size: 1.1em;
+    margin-bottom: 25px;
+}
+
+/* Stats Summary */
+.stats-summary {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.stat-card {
+    background: white;
+    border-radius: 10px;
+    padding: 20px;
+    text-align: center;
+    min-width: 120px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    border: 2px solid transparent;
+}
+
+.stat-card.total {
+    border-color: #007bff;
+}
+
+.stat-card.eligible {
+    border-color: #28a745;
+}
+
+.stat-card.rejected {
+    border-color: #dc3545;
+}
+
+.stat-number {
+    font-size: 2em;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.stat-card.total .stat-number {
+    color: #007bff;
+}
+
+.stat-card.eligible .stat-number {
+    color: #28a745;
+}
+
+.stat-card.rejected .stat-number {
+    color: #dc3545;
+}
+
+.stat-label {
+    font-size: 0.9em;
+    color: #666;
+    font-weight: 600;
+}
+
+/* Applications Table */
+.applications-table-container {
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    margin-bottom: 30px;
+}
+
+.applications-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.applications-table th {
+    background: #f8f9fa;
+    padding: 15px 12px;
+    text-align: left;
+    font-weight: 600;
+    color: #333;
+    border-bottom: 2px solid #e9ecef;
+    white-space: nowrap;
+}
+
+.applications-table td {
+    padding: 12px;
+    border-bottom: 1px solid #e9ecef;
+    vertical-align: top;
+}
+
+.applications-table tr.eligible {
+    background: rgba(40, 167, 69, 0.05);
+}
+
+.applications-table tr.rejected {
+    background: rgba(220, 53, 69, 0.05);
+}
+
+.applications-table tr:hover {
+    background: rgba(0, 123, 255, 0.1) !important;
+}
+
+/* Separator Row */
+.separator-row {
+    background: #f8f9fa !important;
+}
+
+.separator-cell {
+    padding: 15px !important;
+    text-align: center;
+    border-top: 2px solid #e9ecef;
+    border-bottom: 2px solid #e9ecef;
+}
+
+.applications-separator {
+    display: inline-block;
+    background: #6c757d;
+    color: white;
+    padding: 8px 20px;
+    border-radius: 20px;
+    font-weight: bold;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Status Cell */
+.status-cell {
+    min-width: 120px;
+}
+
+.status-badge {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: bold;
+    text-transform: uppercase;
+    margin-bottom: 5px;
+}
+
+.status-badge.eligible {
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.status-badge.rejected {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.status-badge svg {
+    fill: currentColor;
+}
+
+.rejection-reasons {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.rejection-reason {
+    font-size: 10px;
+    background: #dc3545;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 10px;
+    text-align: center;
+}
+
+/* Name Cell */
+.name-cell strong {
+    color: #333;
+    font-size: 15px;
+}
+
+/* Student ID Cell */
+.student-id-cell {
+    font-family: 'Courier New', monospace;
+    font-weight: 600;
+    color: #007bff;
+}
+
+/* Major Cell */
+.major-cell {
+    line-height: 1.8;
+    padding: 15px 12px;
+}
+
+.major-badge {
+    background: #e9ecef;
+    color: #495057;
+    padding: 6px 12px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 600;
+    display: inline-block;
+}
+
+/* GPA Cell */
+.gpa-value {
+    font-weight: bold;
+    font-size: 16px;
+    padding: 4px 8px;
+    border-radius: 6px;
+}
+
+.gpa-value.good-gpa {
+    background: #d4edda;
+    color: #155724;
+}
+
+.gpa-value.low-gpa {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+/* Credits Cell */
+.credits-value {
+    font-weight: bold;
+    font-size: 16px;
+    padding: 4px 8px;
+    border-radius: 6px;
+}
+
+.credits-value.good-credits {
+    background: #d4edda;
+    color: #155724;
+}
+
+.credits-value.low-credits {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+/* Email and Phone Cells */
+.email-link, .phone-link {
+    color: #007bff;
+    text-decoration: none;
+    font-size: 13px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.email-link:hover, .phone-link:hover {
+    text-decoration: underline;
+}
+
+.phone-link {
+    color: #25d366;
+    font-weight: 600;
+}
+
+.phone-link:hover {
+    color: #128c7e;
+}
+
+.phone-link svg {
+    fill: currentColor;
+    flex-shrink: 0;
+}
+
+/* Time Cell */
+.time-info {
+    text-align: center;
+}
+
+.time-info .date {
+    font-weight: 600;
+    color: #333;
+    font-size: 13px;
+}
+
+.time-info .time {
+    font-size: 11px;
+    color: #666;
+}
+
+/* Additional Info Cell */
+.additional-info {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    cursor: help;
+}
+
+.additional-info svg {
+    fill: #007bff;
+}
+
+.info-text {
+    font-size: 12px;
+    color: #666;
+}
+
+.no-info {
+    color: #ccc;
+    text-align: center;
+    font-style: italic;
+}
+
+/* Criteria Info */
+.criteria-info {
+    background: white;
+    border-radius: 12px;
+    padding: 25px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.criteria-info h3 {
+    margin-bottom: 15px;
+    color: #333;
+    font-size: 1.3em;
+}
+
+.criteria-list {
+    display: flex;
+    gap: 30px;
+}
+
+.criterion {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #28a745;
+    font-weight: 600;
+}
+
+.criterion svg {
+    fill: #28a745;
+}
+
+/* No Applications */
+.no-applications {
+    text-align: center;
+    padding: 60px 20px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.no-applications-icon {
+    margin-bottom: 20px;
+}
+
+.no-applications-icon svg {
+    fill: #ccc;
+}
+
+.no-applications h3 {
+    color: #333;
+    margin-bottom: 10px;
+}
+
+.no-applications p {
+    color: #666;
+    font-size: 1.1em;
+}
+
+/* Delete Buttons */
+.delete-all-container {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.delete-all-btn {
+    background: #dc3545;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: background-color 0.3s ease;
+}
+
+.delete-all-btn:hover {
+    background: #c82333;
+}
+
+.delete-all-btn svg {
+    fill: currentColor;
+}
+
+.actions-cell {
+    text-align: center;
+    padding: 8px;
+}
+
+.delete-btn {
+    background: #dc3545;
+    color: white;
+    border: none;
+    padding: 6px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.delete-btn:hover {
+    background: #c82333;
+}
+
+.delete-btn svg {
+    fill: currentColor;
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+    .applications-table {
+        font-size: 12px;
+    }
+    
+    .applications-table th,
+    .applications-table td {
+        padding: 8px 6px;
+    }
+}
+
+@media (max-width: 992px) {
+    .stats-summary {
+        flex-wrap: wrap;
+    }
+    
+    .criteria-list {
+        flex-direction: column;
+        gap: 15px;
+    }
+}
+
+@media (max-width: 768px) {
+    .application-management-container {
+        padding: 10px;
+    }
+    
+    .applications-table-container {
+        overflow-x: auto;
+    }
+    
+    .applications-table {
+        min-width: 1000px;
+    }
+    
+    .stats-summary {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .stat-card {
+        width: 100%;
+        max-width: 200px;
+    }
+}
+
+/* Tooltip styles */
+[title]:hover::after {
+    content: attr(title);
+    position: absolute;
+    background: #333;
+    color: white;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    white-space: nowrap;
+    z-index: 1000;
+    margin-top: 5px;
+    opacity: 0.9;
+}
