@@ -1,0 +1,349 @@
+{% extends "frontend/layout.html" %}
+{% load static %}
+
+{% block content %}
+<style>
+    .thread-detail-container {
+        margin-top: 120px;
+        margin-bottom: 50px;
+    }
+    
+    .thread-header {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 25px;
+        margin-bottom: 30px;
+        border-left: 4px solid #4A2E5F;
+    }
+    
+    .thread-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        background-color: #6c757d;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 20px;
+    }
+    
+    .thread-meta {
+        color: #6c757d;
+        font-size: 1em;
+        margin-bottom: 15px;
+    }
+    
+    .thread-content {
+        font-size: 1.3em;
+        font-weight: 500;
+        line-height: 1.7;
+        margin-bottom: 20px;
+        color: #2c3e50;
+    }
+    
+    .reply-container {
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+        background-color: #fff;
+        position: relative;
+    }
+    
+    .reply-header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+    
+    .reply-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background-color: #4A2E5F;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 15px;
+    }
+    
+    .reply-meta {
+        color: #6c757d;
+        font-size: 1em;
+    }
+    
+    .reply-content {
+        margin-left: 55px;
+        line-height: 1.7;
+        font-size: 1.3em;
+        font-weight: 500;
+        color: #2c3e50;
+    }
+    
+    .reply-form {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 25px;
+        margin-top: 30px;
+    }
+    
+    .btn-primary {
+        background-color: #4A2E5F;
+        border-color: #4A2E5F;
+    }
+    
+    .btn-primary:hover {
+        background-color: #3a2349;
+        border-color: #3a2349;
+    }
+    
+    .back-link {
+        color: #4A2E5F;
+        text-decoration: none;
+        margin-bottom: 20px;
+        display: inline-block;
+    }
+    
+    .back-link:hover {
+        color: #3a2349;
+        text-decoration: underline;
+    }
+    
+    .no-replies {
+        text-align: center;
+        color: #6c757d;
+        font-style: italic;
+        padding: 40px;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        margin: 20px 0;
+    }
+    
+    .dlc-logo {
+        width: 30px;
+        height: 30px;
+        filter: brightness(0) invert(1);
+    }
+    
+    .alert {
+        margin-bottom: 20px;
+    }
+    
+    /* Text alignment classes for Arabic/English detection */
+    .text-arabic {
+        text-align: right;
+        direction: rtl;
+    }
+    
+    .text-english {
+        text-align: left;
+        direction: ltr;
+    }
+    
+    .reply-content.text-arabic {
+        margin-left: 0;
+        margin-right: 55px;
+        font-size: 1.3em;
+        font-weight: 500;
+        color: #2c3e50;
+    }
+</style>
+
+<div class="container thread-detail-container">
+    <a href="{% url 'contact' %}" class="back-link">
+        <i class="fas fa-arrow-left"></i> Back to All Threads
+    </a>
+    
+    <!-- Thread Details -->
+    <div class="thread-header">
+        <div class="d-flex align-items-start">
+            <div class="thread-icon">
+                <i class="fas fa-user" style="color: white; font-size: 22px;"></i>
+            </div>
+            <div class="flex-grow-1">
+                <h2 class="mb-2" data-text-content>{{ thread.title }}</h2>
+                <div class="thread-meta">
+                    Posted by <strong>Anonymous User</strong> on 
+                    {{ thread.created_at|date:"F d, Y \a\t g:i A" }}
+                </div>
+                <div class="thread-content" data-text-content>
+                    {{ thread.content|linebreaks }}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Replies Section -->
+    <div class="replies-section">
+        <h4 class="mb-4">Replies ({{ replies.count }})</h4>
+        
+        {% if replies %}
+            {% for reply in replies %}
+            <div class="reply-container">
+                <div class="reply-header">
+                    <div class="reply-icon">
+                        <img src="{% static 'img/white_dlc.png' %}" alt="DLC" class="dlc-logo">
+                    </div>
+                    <div class="flex-grow-1">
+                        <strong>{{ reply.user.get_full_name }}</strong>
+                        {% if reply.user.role %}
+                            <span class="badge bg-secondary ms-2">{{ reply.user.get_role_display }}</span>
+                        {% endif %}
+                        <div class="reply-meta">
+                            {{ reply.created_at|date:"F d, Y \a\t g:i A" }}
+                        </div>
+                    </div>
+                </div>
+                <div class="reply-content" data-text-content>
+                    {{ reply.content|linebreaks }}
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="no-replies">
+                <p>No replies yet. Be the first to respond!</p>
+            </div>
+        {% endif %}
+    </div>
+    
+    <!-- Reply Form -->
+    {% if user_can_reply %}
+    <div class="reply-form">
+        <h4 class="mb-3">Add a Reply</h4>
+        <div id="reply-messages"></div>
+        <form id="replyForm">
+            {% csrf_token %}
+            <div class="mb-3">
+                <label for="replyContent" class="form-label">Your Response</label>
+                <textarea class="form-control" id="replyContent" name="content" rows="5" 
+                          placeholder="Type your response here..." data-text-content required></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary" id="submitReply">
+                <i class="fas fa-reply"></i> Post Reply
+            </button>
+        </form>
+    </div>
+    {% else %}
+        <div class="alert alert-info mt-4">
+            <i class="fas fa-info-circle"></i>
+            You must be logged in as a registered member to reply to this thread.
+            <a href="{% url 'login' %}" class="alert-link">Login here</a>.
+        </div>
+    {% endif %}
+</div>
+
+<!-- Include Font Awesome for icons -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Function to detect if text contains Arabic characters
+    function containsArabic(text) {
+        const arabicPattern = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
+        return arabicPattern.test(text);
+    }
+    
+    // Function to apply text alignment based on language detection
+    function applyTextAlignment() {
+        const textElements = document.querySelectorAll('[data-text-content]');
+        
+        textElements.forEach(function(element) {
+            const text = element.textContent || element.innerText;
+            
+            if (containsArabic(text)) {
+                element.classList.add('text-arabic');
+                element.classList.remove('text-english');
+            } else {
+                element.classList.add('text-english');
+                element.classList.remove('text-arabic');
+            }
+        });
+    }
+    
+    // Apply alignment on page load
+    applyTextAlignment();
+    
+    // Add real-time text alignment for textarea
+    const replyTextarea = document.getElementById('replyContent');
+    if (replyTextarea) {
+        replyTextarea.addEventListener('input', function() {
+            const text = this.value;
+            if (containsArabic(text)) {
+                this.classList.add('text-arabic');
+                this.classList.remove('text-english');
+            } else {
+                this.classList.add('text-english');
+                this.classList.remove('text-arabic');
+            }
+        });
+    }
+    
+    const replyForm = document.getElementById('replyForm');
+    const messagesDiv = document.getElementById('reply-messages');
+    
+    if (replyForm) {
+        replyForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(replyForm);
+            const submitButton = document.getElementById('submitReply');
+            const originalText = submitButton.innerHTML;
+            
+            // Disable button and show loading
+            submitButton.disabled = true;
+            submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Posting...';
+            
+            fetch('{% url "add_reply" thread.id %}', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Show success message
+                    messagesDiv.innerHTML = `
+                        <div class="alert alert-success alert-dismissible fade show">
+                            <i class="fas fa-check-circle"></i> ${data.message}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    `;
+                    
+                    // Clear the form
+                    document.getElementById('replyContent').value = '';
+                    
+                    // Reload the page to show the new reply
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1500);
+                } else {
+                    // Show error message
+                    messagesDiv.innerHTML = `
+                        <div class="alert alert-danger alert-dismissible fade show">
+                            <i class="fas fa-exclamation-circle"></i> ${data.message}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                messagesDiv.innerHTML = `
+                    <div class="alert alert-danger alert-dismissible fade show">
+                        <i class="fas fa-exclamation-circle"></i> An error occurred. Please try again.
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                `;
+            })
+            .finally(() => {
+                // Re-enable button
+                submitButton.disabled = false;
+                submitButton.innerHTML = originalText;
+            });
+        });
+    }
+});
+</script>
+{% endblock %}

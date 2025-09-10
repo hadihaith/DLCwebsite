@@ -1,0 +1,321 @@
+{% extends 'frontend/layout.html'%}
+
+{% load static %}
+{% block title %}Dean's List - Dean's List Council{% endblock %}
+{% block content %}
+
+<section style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding-top: 50px; padding-bottom: 50px;">
+    <div class="container">
+        <div class="row mb-5">
+            <div class="col-12 text-center">
+                <h1 class="display-4 text-white mb-3" style="font-weight: 300; text-shadow: 2px 2px 4px rgba(0,0,0,0.3);">
+                    Dean's List
+                </h1>
+                <p class="lead text-white-50">Honor Roll of Academic Excellence</p>
+            </div>
+        </div>
+
+        <div class="row mb-5">
+            <div class="col-12">
+                <div class="card shadow-lg border-0" style="border-radius: 15px; backdrop-filter: blur(10px); background: rgba(255,255,255,0.95);">
+                    <div class="card-body p-4">
+                        <h5 class="card-title text-center mb-4" style="color: #4A2E5F; font-weight: 600;">Filter Dean's List</h5>
+                        
+                        <form method="GET" class="row g-3 justify-content-center">
+
+                            <div class="col-md-3">
+                                <label for="semester" class="form-label fw-bold" style="color: #4A2E5F;">Semester</label>
+                                <select class="form-select" id="semester" name="semester" required style="border-radius: 10px; border: 2px solid #e9ecef;">
+                                    <option value="">Select Semester</option>
+                                    <option value="fall" {% if selected_semester == 'fall' %}selected{% endif %}>Fall - الكورس الأول</option>
+                                    <option value="spring" {% if selected_semester == 'spring' %}selected{% endif %}>Spring - الكورس الثاني</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-3">
+                                <label for="year" class="form-label fw-bold" style="color: #4A2E5F;">Year</label>
+                                <select class="form-select" id="year" name="year" required style="border-radius: 10px; border: 2px solid #e9ecef;">
+                                    <option value="">Select Year</option>
+                                    {% for year in years %}
+                                        <option value="{{ year }}" {% if selected_year == year|stringformat:"s" %}selected{% endif %}>{{ year }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+    
+                            <div class="col-md-3">
+                                <label for="major" class="form-label fw-bold" style="color: #4A2E5F;">Major (Optional)</label>
+                                <select class="form-select" id="major" name="major" style="border-radius: 10px; border: 2px solid #e9ecef;">
+                                    <option value="">All Majors</option>
+                                    {% for major in all_majors %}
+                                        <option value="{{ major }}" {% if selected_major == major %}selected{% endif %}>{{ major }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+       
+                            <div class="col-md-3 d-flex align-items-end">
+                                <button type="submit" class="btn w-100" style="background: linear-gradient(45deg, #4A2E5F, #667eea); color: white; border-radius: 10px; padding: 12px; font-weight: 600; border: none; transition: all 0.3s ease;">
+                                    <i class="fas fa-search me-2"></i>View List
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+        {% if students_by_major %}
+            <div class="row">
+                <div class="col-12">
+       
+                        <div class="card shadow-lg border-0 mb-4" style="border-radius: 15px; background: rgba(255,255,255,0.95);">
+                            <div class="card-body text-center py-3">
+                                <h4 class="mb-0" style="color: #4A2E5F; font-weight: 600;">
+                                    {{ selected_semester|title }} {{ selected_year }} Dean's List
+                                    {% if selected_major %}
+                                    - {{ selected_major }}
+                                    {% endif %}
+                                </h4>
+                                <p class="text-muted mb-0">
+                                    {% if selected_major %}
+                                        Showing only: {{ selected_major }} students
+                                    {% else %}
+                                        Showing all majors
+                                    {% endif %}
+                                    | Total Students: {{ total_students }}
+                                </p>
+                            </div>
+                        </div>                  
+                    {% for major, students in students_by_major.items %}
+                        <div class="card shadow-lg border-0 mb-4" style="border-radius: 15px; background: rgba(255,255,255,0.95);">
+                            <div class="card-header text-center py-3" style="background: linear-gradient(45deg, #4A2E5F, #667eea); border-radius: 15px 15px 0 0; border: none;">
+                                <h5 class="mb-0 text-white" style="font-weight: 600;">
+                                    {{ major|default:"Unknown Major" }}
+                                    <span class="badge bg-light text-dark ms-2">{{ students|length }} student{{ students|length|pluralize }}</span>
+                                </h5>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    <table class="table table-hover mb-0">
+                                        <thead style="background: rgba(74, 46, 95, 0.1);">
+                                            <tr>
+                                                <th class="text-center py-3" style="color: #4A2E5F; font-weight: 600; border: none;">#</th>
+                                                <th class="py-3" style="color: #4A2E5F; font-weight: 600; border: none;">Student Name</th>
+                                                <th class="text-center py-3" style="color: #4A2E5F; font-weight: 600; border: none;">Student ID</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for student in students %}
+                                                <tr style="transition: all 0.3s ease;" onmouseover="this.style.backgroundColor='rgba(74, 46, 95, 0.05)'" onmouseout="this.style.backgroundColor=''">
+                                                    <td class="text-center py-3" style="color: #667eea; font-weight: 600;">{{ forloop.counter }}</td>
+                                                    <td class="py-3" style="color: #2c3e50;">
+                                                        <div class="d-flex align-items-center">
+                                                            <div class="me-3" style="width: 40px; height: 40px; background: linear-gradient(45deg, #4A2E5F, #667eea); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 14px;">
+                                                                {{ student.student_name|first|upper }}
+                                                            </div>
+                                                            <div>
+                                                                <div style="font-weight: 700; color: #2c3e50; font-size: 1.1rem;">{{ student.student_name }}</div>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td class="text-center py-3" style="color: #7f8c8d; font-family: 'Courier New', monospace;">{{ student.student_id }}</td>
+                                                </tr>
+                                            {% empty %}
+                                                <tr>
+                                                    <td colspan="3" class="text-center py-4 text-muted">No students found for this major.</td>
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    {% empty %}
+                        <div class="card shadow-lg border-0" style="border-radius: 15px; background: rgba(255,255,255,0.95);">
+                            <div class="card-body text-center py-5">
+                                <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                                <h5 class="text-muted">No students found</h5>
+                                <p class="text-muted">No dean's list records found for the selected semester and year.</p>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        {% else %}
+            {% if selected_semester and selected_year %}
+        
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card shadow-lg border-0" style="border-radius: 15px; background: rgba(255,255,255,0.95);">
+                            <div class="card-body text-center py-5">
+                                <i class="fas fa-exclamation-circle fa-3x text-warning mb-3"></i>
+                                <h5 style="color: #4A2E5F;">No Records Found</h5>
+                                <p class="text-muted">No dean's list records found for {{ selected_semester|title }} {{ selected_year }}.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% else %}
+   
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card shadow-lg border-0" style="border-radius: 15px; background: rgba(255,255,255,0.95);">
+                            <div class="card-body text-center py-5">
+                                <i class="fas fa-graduation-cap fa-3x mb-3" style="color: #4A2E5F;"></i>
+                                <h5 style="color: #4A2E5F;">Welcome to the Dean's List</h5>
+                                <p class="text-muted">Please select a semester and year above to view the dean's list for that period.</p>
+                                {% if available_lists %}
+                                    <div class="mt-4">
+                                        <h6 style="color: #4A2E5F;">Available Dean's Lists:</h6>
+                                        <div class="d-flex flex-wrap justify-content-center gap-2 mt-3">
+                                            {% for list in available_lists %}
+                                                <span class="badge bg-light text-dark border" style="font-size: 12px; padding: 8px 12px;">
+                                                    {{ list.semester|title }} {{ list.year }}
+                                                </span>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        {% endif %}
+    </div>
+</section>
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+<script>
+
+document.addEventListener('DOMContentLoaded', function() {
+    const semesterSelect = document.getElementById('semester');
+    const yearSelect = document.getElementById('year');
+    const majorSelect = document.getElementById('major');
+    const form = semesterSelect.closest('form');
+
+    function autoSubmitForm() {
+        if (semesterSelect.value && yearSelect.value) {
+
+            const tempForm = document.createElement('form');
+            tempForm.method = 'GET';
+            tempForm.style.display = 'none';
+            
+            const semesterInput = document.createElement('input');
+            semesterInput.name = 'semester';
+            semesterInput.value = semesterSelect.value;
+            tempForm.appendChild(semesterInput);
+            
+            const yearInput = document.createElement('input');
+            yearInput.name = 'year';
+            yearInput.value = yearSelect.value;
+            tempForm.appendChild(yearInput);
+            
+
+            if (majorSelect.value) {
+                const majorInput = document.createElement('input');
+                majorInput.name = 'major';
+                majorInput.value = majorSelect.value;
+                tempForm.appendChild(majorInput);
+            }
+            
+            document.body.appendChild(tempForm);
+            tempForm.submit();
+        }
+    }
+    
+
+    semesterSelect.addEventListener('change', function() {
+        if (this.value && yearSelect.value) {
+            autoSubmitForm();
+        }
+    });
+    
+    yearSelect.addEventListener('change', function() {
+        if (this.value && semesterSelect.value) {
+            autoSubmitForm();
+        }
+    });
+    
+   
+    majorSelect.addEventListener('change', function() {
+        if (semesterSelect.value && yearSelect.value) {
+            autoSubmitForm();
+        }
+    });
+    
+
+    form.addEventListener('submit', function() {
+        const submitBtn = form.querySelector('button[type="submit"]');
+        if (submitBtn) {
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Loading...';
+            submitBtn.disabled = true;
+        }
+    });
+    
+ 
+    function showLoadingState() {
+        const submitBtn = form.querySelector('button[type="submit"]');
+        if (submitBtn) {
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Filtering...';
+            submitBtn.disabled = true;
+        }
+        
+  
+        const resultsSection = document.querySelector('.container .row:last-child');
+        if (resultsSection) {
+            resultsSection.style.opacity = '0.6';
+            resultsSection.style.pointerEvents = 'none';
+        }
+    }
+    
+ 
+    [semesterSelect, yearSelect, majorSelect].forEach(select => {
+        select.addEventListener('change', function() {
+            if (semesterSelect.value && yearSelect.value) {
+                showLoadingState();
+            }
+        });
+    });
+});
+</script>
+
+<style>
+    .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    }
+    
+    .form-select:focus, .form-control:focus {
+        border-color: #4A2E5F;
+        box-shadow: 0 0 0 0.2rem rgba(74, 46, 95, 0.25);
+    }
+    
+    .card {
+        transition: all 0.3s ease;
+    }
+    
+    .card:hover {
+        transform: translateY(-5px);
+    }
+    
+    .table tbody tr:hover {
+        background-color: rgba(74, 46, 95, 0.05) !important;
+    }
+    
+    @media (max-width: 768px) {
+        .display-4 {
+            font-size: 2rem;
+        }
+        
+        .col-md-3 {
+            margin-bottom: 1rem;
+        }
+    }
+</style>
+
+{% endblock %}

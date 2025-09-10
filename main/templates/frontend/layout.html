@@ -5,6 +5,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no">
+    <link rel="icon" type="image/png" href="{% static 'img/white_dlc.ico' %}">
     <title>Home - DLC</title>
     <script type="application/ld+json">
         {
@@ -31,11 +32,11 @@
             <ul class="navbar-nav mx-auto">
                 <li class="nav-item"><a class="nav-link active" href="{% url 'home' %}" style="color: rgb(255,255,255);">Home</a></li>
                 <li class="nav-item"><a class="nav-link" href="{% url 'members' %}" style="color: rgba(255,255,255,0.65);"><span style="color: rgba(255, 255, 255, 0.8);">Members</span></a></li>
-                <li class="nav-item"><a class="nav-link" href="#" style="color: rgba(255,255,255,0.65);">Deans List</a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url 'deanslist' %}" style="color: rgba(255,255,255,0.65);">Deans List</a></li>
                 <li class="nav-item"><a class="nav-link" href="#" style="color: rgba(255,255,255,0.65);">Resources</a></li>
-                <li class="nav-item"><a class="nav-link" href="#" style="color: rgba(255,255,255,0.65);">Contact</a></li>
-            </ul><button style="margin-right: 10px;" id="buttonasf"><a  role="button" href="{% url 'login' %}" style=" color: rgb(255, 255, 255); margin-right: 10px;">Members Portal</a></button>
-            <button id="buttonasf" style="margin-right: 10px;"><a  role="button" href="{% url 'apply' %}" style="color: rgb(255, 255, 255); margin-right: 10px;">Apply</a></button>
+                <li class="nav-item"><a class="nav-link" href="{% url 'contact' %}" style="color: rgba(255,255,255,0.65);">Contact</a></li>
+            </ul><a  role="button" href="{% url 'login' %}" style=" color: rgb(255, 255, 255); margin-right: 10px; font-size: 16px;"><button style="margin-right: 10px; min-width: 200px;" id="buttonasf">Members Portal</button></a>
+            <a  role="button" href="{% url 'apply' %}" style="color: rgb(255, 255, 255); margin-right: 10px;"><button id="buttonasf" style="margin-right: 10px;">Apply</button></a>
         </div>
     </nav>
     {% block content %}{% endblock %}

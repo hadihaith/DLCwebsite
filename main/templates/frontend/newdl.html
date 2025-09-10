@@ -1,0 +1,61 @@
+{% extends 'frontend/portal.html' %}
+
+{% load static %}
+{% block title %}Create New Dean's List - Dean's List Council{% endblock %}
+{% block portal_content %}
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h4>Create New Dean's List</h4>
+                </div>
+                <div class="card-body">
+                    {% if message %}
+                        <div class="alert alert-danger" role="alert">{{ message }}</div>
+                    {% endif %}
+                    
+                    <form method="post" action="{% url 'newdl' %}" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        
+                        <!-- Semester Selection -->
+                        <div class="mb-3">
+                            <label for="semester" class="form-label">Semester</label>
+                            <select class="form-select" id="semester" name="semester" required>
+                                <option value="">Select Semester</option>
+                                <option value="fall">Fall</option>
+                                <option value="spring">Spring</option>
+                            </select>
+                        </div>
+
+                        <!-- Year Selection -->
+                        <div class="mb-3">
+                            <label for="year" class="form-label">Year</label>
+                            <select class="form-select" id="year" name="year" required>
+                                <option value="">Select Year</option>
+                                {% for year in years %}
+                                    <option value="{{ year }}">{{ year }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Excel File Upload -->
+                        <div class="mb-3">
+                            <label for="excel_file" class="form-label">Excel File</label>
+                            <input type="file" class="form-control" id="excel_file" name="excel_file" 
+                                   accept=".xlsx,.xls" required>
+                            <div class="form-text">Please upload an Excel file (.xlsx or .xls)</div>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">Create Dean's List</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

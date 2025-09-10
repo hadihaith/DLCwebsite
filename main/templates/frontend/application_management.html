@@ -1,0 +1,515 @@
+{% extends 'frontend/portal.html' %}
+{% load static %}
+
+{% block portal_content %}
+{% csrf_token %}
+<link rel="stylesheet" href="{% static 'frontend/assets/css/application_management.css' %}">
+
+<div class="application-management-container">
+    <div class="management-header">
+        <h2>Application Management</h2>
+        <p>Review and manage membership applications</p>
+        
+        <div class="stats-summary">
+            <div class="stat-card total">
+                <div class="stat-number">{{ total_applications }}</div>
+                <div class="stat-label">Total Applications</div>
+            </div>
+            <div class="stat-card eligible">
+                <div class="stat-number">{{ eligible_applications }}</div>
+                <div class="stat-label">Eligible</div>
+            </div>
+            <div class="stat-card rejected">
+                <div class="stat-number">{{ rejected_applications }}</div>
+                <div class="stat-label">Auto-Rejected</div>
+            </div>
+        </div>
+        
+        {% if can_delete_all and total_applications > 0 %}
+        <div class="delete-all-container">
+            <button id="deleteAllBtn" class="delete-all-btn">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24">
+                    <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                </svg>
+                Delete All Applications
+            </button>
+        </div>
+        {% endif %}
+    </div>
+
+    {% if applications_with_status %}
+    <div class="applications-table-container">
+        <table class="applications-table">
+            <thead>
+                <tr>
+                    <th>Status</th>
+                    <th>Name</th>
+                    <th>Student ID</th>
+                    <th>Major</th>
+                    <th>GPA</th>
+                    <th>Credits Passed</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                    <th>Submitted</th>
+                    <th>Additional Info</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in applications_with_status %}
+                    {% if item.add_separator %}
+                        <tr class="separator-row">
+                            <td colspan="11" class="separator-cell">
+                                <div class="applications-separator">
+                                    <span>Auto-Rejected Applications</span>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endif %}
+                    <tr class="{% if item.auto_reject %}rejected{% else %}eligible{% endif %}">
+                        <td class="status-cell">
+                            {% if item.auto_reject %}
+                                <div class="status-badge rejected">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24">
+                                        <path d="M12 2C6.486 2 2 6.486 2 12s4.486 10 10 10 10-4.486 10-10S17.514 2 12 2zm0 18c-4.411 0-8-3.589-8-8s3.589-8 8-8 8 3.589 8 8-3.589 8-8 8z"/>
+                                        <path d="M15.707 8.707L12 12.414 8.293 8.707 7.586 9.414 11.293 13.121 7.586 16.828 8.293 17.535 12 13.828 15.707 17.535 16.414 16.828 12.707 13.121 16.414 9.414z"/>
+                                    </svg>
+                                    AUTO-REJECT
+                                </div>
+                                <div class="rejection-reasons">
+                                    {% for reason in item.rejection_reasons %}
+                                        <span class="rejection-reason">{{ reason }}</span>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <div class="status-badge eligible">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24">
+                                        <path d="M12 2C6.486 2 2 6.486 2 12s4.486 10 10 10 10-4.486 10-10S17.514 2 12 2zm0 18c-4.411 0-8-3.589-8-8s3.589-8 8-8 8 3.589 8 8-3.589 8-8 8z"/>
+                                        <path d="M10.293 13.293l-2-2L7.586 12l2.707 2.707L16.707 8.293 16 7.586z"/>
+                                    </svg>
+                                    ELIGIBLE
+                                </div>
+                            {% endif %}
+                        </td>
+                        <td class="name-cell">
+                            <strong>{{ item.application.name }}</strong>
+                        </td>
+                        <td class="student-id-cell">
+                            {{ item.application.student_id }}
+                        </td>
+                        <td class="major-cell">
+                            <span class="major-badge">{{ item.major_display }}</span>
+                        </td>
+                        <td class="gpa-cell">
+                            <span class="gpa-value {% if item.application.GPA < 3.5 %}low-gpa{% else %}good-gpa{% endif %}">
+                                {{ item.application.GPA }}
+                            </span>
+                        </td>
+                        <td class="credits-cell">
+                            <span class="credits-value {% if item.application.passed_credits < 30 %}low-credits{% else %}good-credits{% endif %}">
+                                {{ item.application.passed_credits }}
+                            </span>
+                        </td>
+                        <td class="email-cell">
+                            <a href="mailto:{{ item.application.email }}" class="email-link">
+                                {{ item.application.email }}
+                            </a>
+                        </td>
+                        <td class="phone-cell">
+                            <a href="https://wa.me/{{ item.application.phone }}" target="_blank" class="phone-link">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.520-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.890-5.335 11.893-11.893A11.821 11.821 0 0020.465 3.488"/>
+                                </svg>
+                                {{ item.application.phone }}
+                            </a>
+                        </td>
+                        <td class="time-cell">
+                            <div class="time-info">
+                                <div class="date">{{ item.application.time_submitted|date:"M d, Y" }}</div>
+                                <div class="time">{{ item.application.time_submitted|time:"H:i" }}</div>
+                            </div>
+                        </td>
+                        <td class="additional-info-cell">
+                            {% if item.application.anything_else %}
+                                <div class="additional-info" title="{{ item.application.anything_else }}">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24">
+                                        <path d="M12 2C6.486 2 2 6.486 2 12s4.486 10 10 10 10-4.486 10-10S17.514 2 12 2zm0 18c-4.411 0-8-3.589-8-8s3.589-8 8-8 8 3.589 8 8-3.589 8-8 8z"/>
+                                        <path d="M11 11h2v6h-2zm0-4h2v2h-2z"/>
+                                    </svg>
+                                    <span class="info-text">{{ item.application.anything_else|truncatechars:30 }}</span>
+                                </div>
+                            {% else %}
+                                <span class="no-info">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="actions-cell">
+                            {% if can_delete %}
+                            <button class="delete-btn" data-app-id="{{ item.application.id }}" data-app-name="{{ item.application.name }}">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24">
+                                    <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                                </svg>
+                            </button>
+                            {% else %}
+                            <span class="no-permission">-</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="criteria-info">
+        <h3>Eligibility Criteria</h3>
+        <div class="criteria-list">
+            <div class="criterion">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
+                    <path d="M12 2C6.486 2 2 6.486 2 12s4.486 10 10 10 10-4.486 10-10S17.514 2 12 2zm0 18c-4.411 0-8-3.589-8-8s3.589-8 8-8 8 3.589 8 8-3.589 8-8 8z"/>
+                    <path d="M10.293 13.293l-2-2L7.586 12l2.707 2.707L16.707 8.293 16 7.586z"/>
+                </svg>
+                <span>Minimum GPA: 3.5</span>
+            </div>
+            <div class="criterion">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
+                    <path d="M12 2C6.486 2 2 6.486 2 12s4.486 10 10 10 10-4.486 10-10S17.514 2 12 2zm0 18c-4.411 0-8-3.589-8-8s3.589-8 8-8 8 3.589 8 8-3.589 8-8 8z"/>
+                    <path d="M10.293 13.293l-2-2L7.586 12l2.707 2.707L16.707 8.293 16 7.586z"/>
+                </svg>
+                <span>Minimum Credits Passed: 30</span>
+            </div>
+        </div>
+    </div>
+
+    {% else %}
+    <div class="no-applications">
+        <div class="no-applications-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24">
+                <path d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm0 16H5V5h14v14z"/>
+                <path d="M17 8.5H7a.5.5 0 0 0 0 1h10a.5.5 0 0 0 0-1zm0 2H7a.5.5 0 0 0 0 1h10a.5.5 0 0 0 0-1zm0 2H7a.5.5 0 0 0 0 1h10a.5.5 0 0 0 0-1z"/>
+            </svg>
+        </div>
+        <h3>No Applications Yet</h3>
+        <p>When students apply for membership, their applications will appear here for review.</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Delete Confirmation Modals -->
+<div id="deleteModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Confirm Deletion</h3>
+            <span class="close" onclick="closeDeleteModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div class="warning-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="#e74c3c">
+                    <path d="M12 2C6.486 2 2 6.486 2 12s4.486 10 10 10 10-4.486 10-10S17.514 2 12 2zm0 18c-4.411 0-8-3.589-8-8s3.589-8 8-8 8 3.589 8 8-3.589 8-8 8z"/>
+                    <path d="M11 11h2v6h-2zm0-4h2v2h-2z"/>
+                </svg>
+            </div>
+            <p id="deleteMessage"></p>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-cancel" onclick="closeDeleteModal()">Cancel</button>
+            <button class="btn-delete" onclick="confirmDelete()">Delete</button>
+        </div>
+    </div>
+</div>
+
+<div id="deleteAllModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Confirm Mass Deletion</h3>
+            <span class="close" onclick="closeDeleteAllModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div class="warning-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="#e74c3c">
+                    <path d="M12 7.77L18.39 18H5.61L12 7.77M12 4L2 20h20L12 4z"/>
+                    <path d="M13 16h-2v2h2zm0-6h-2v4h2z"/>
+                </svg>
+            </div>
+            <p><strong>Warning:</strong> This will permanently delete ALL applications.</p>
+            <p>This action cannot be undone. Are you absolutely sure?</p>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-cancel" onclick="closeDeleteAllModal()">Cancel</button>
+            <button class="btn-delete" onclick="confirmDeleteAll()">Delete All</button>
+        </div>
+    </div>
+</div>
+
+<style>
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(2px);
+}
+
+.modal-content {
+    background-color: #fff;
+    margin: 10% auto;
+    padding: 0;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 500px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    animation: modalSlideIn 0.3s ease;
+}
+
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-50px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.modal-header {
+    background-color: #f8f9fa;
+    padding: 20px;
+    border-bottom: 1px solid #e9ecef;
+    border-radius: 8px 8px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h3 {
+    margin: 0;
+    color: #333;
+    font-weight: 600;
+}
+
+.close {
+    color: #999;
+    font-size: 24px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.close:hover {
+    color: #333;
+}
+
+.modal-body {
+    padding: 30px 20px;
+    text-align: center;
+}
+
+.warning-icon {
+    margin-bottom: 20px;
+}
+
+.modal-body p {
+    margin: 10px 0;
+    color: #555;
+    line-height: 1.5;
+}
+
+.modal-footer {
+    background-color: #f8f9fa;
+    padding: 20px;
+    border-top: 1px solid #e9ecef;
+    border-radius: 0 0 8px 8px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.btn-cancel, .btn-delete {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.btn-cancel {
+    background-color: #6c757d;
+    color: white;
+}
+
+.btn-cancel:hover {
+    background-color: #5a6268;
+}
+
+.btn-delete {
+    background-color: #e74c3c;
+    color: white;
+}
+
+.btn-delete:hover {
+    background-color: #c0392b;
+}
+
+.no-permission {
+    color: #999;
+    font-style: italic;
+}
+</style>
+
+<script>
+let currentApplicationId = null;
+let currentApplicationName = null;
+
+function showDeleteModal(applicationId, applicationName) {
+    currentApplicationId = applicationId;
+    currentApplicationName = applicationName;
+    document.getElementById('deleteMessage').textContent = `Are you sure you want to delete the application from "${applicationName}"?`;
+    document.getElementById('deleteModal').style.display = 'block';
+}
+
+function closeDeleteModal() {
+    document.getElementById('deleteModal').style.display = 'none';
+    currentApplicationId = null;
+    currentApplicationName = null;
+}
+
+function confirmDelete() {
+    if (currentApplicationId) {
+        fetch(`/portal/applications/delete/${currentApplicationId}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'Content-Type': 'application/json',
+            },
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                closeDeleteModal();
+                showErrorMessage('Error: ' + data.message);
+            }
+        })
+        .catch(error => {
+            closeDeleteModal();
+            showErrorMessage('Error deleting application');
+            console.error('Error:', error);
+        });
+    }
+}
+
+function showDeleteAllModal() {
+    document.getElementById('deleteAllModal').style.display = 'block';
+}
+
+function closeDeleteAllModal() {
+    document.getElementById('deleteAllModal').style.display = 'none';
+}
+
+function confirmDeleteAll() {
+    fetch('/portal/applications/delete-all/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            'Content-Type': 'application/json',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            closeDeleteAllModal();
+            showSuccessMessage(data.message);
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            closeDeleteAllModal();
+            showErrorMessage('Error: ' + data.message);
+        }
+    })
+    .catch(error => {
+        closeDeleteAllModal();
+        showErrorMessage('Error deleting applications');
+        console.error('Error:', error);
+    });
+}
+
+function showErrorMessage(message) {
+    // Create a temporary error notification
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background-color: #e74c3c;
+        color: white;
+        padding: 15px 20px;
+        border-radius: 5px;
+        z-index: 1001;
+        animation: slideIn 0.3s ease;
+    `;
+    notification.textContent = message;
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.remove();
+    }, 3000);
+}
+
+function showSuccessMessage(message) {
+    // Create a temporary success notification
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background-color: #27ae60;
+        color: white;
+        padding: 15px 20px;
+        border-radius: 5px;
+        z-index: 1001;
+        animation: slideIn 0.3s ease;
+    `;
+    notification.textContent = message;
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.remove();
+    }, 3000);
+}
+
+// Close modals when clicking outside
+window.onclick = function(event) {
+    const deleteModal = document.getElementById('deleteModal');
+    const deleteAllModal = document.getElementById('deleteAllModal');
+    
+    if (event.target === deleteModal) {
+        closeDeleteModal();
+    }
+    if (event.target === deleteAllModal) {
+        closeDeleteAllModal();
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const deleteAllBtn = document.getElementById('deleteAllBtn');
+    if (deleteAllBtn) {
+        deleteAllBtn.addEventListener('click', showDeleteAllModal);
+    }
+    
+    // Add event listeners for individual delete buttons
+    const deleteButtons = document.querySelectorAll('.delete-btn');
+    deleteButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const appId = this.getAttribute('data-app-id');
+            const appName = this.getAttribute('data-app-name');
+            showDeleteModal(appId, appName);
+        });
+    });
+});
+</script>
+
+{% endblock %}

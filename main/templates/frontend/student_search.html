@@ -1,0 +1,162 @@
+{% extends 'frontend/portal.html' %}
+{% load static %}
+
+{% block portal_content %}
+<link rel="stylesheet" href="{% static 'frontend/assets/css/student_search.css' %}">
+
+<div class="student-search-container">
+    <div class="search-header">
+        <h2>Student Dean's List Search</h2>
+        <p>Search for a student using their ID or name to see their dean's list rankings</p>
+        {% if not user.is_staff and not user.is_superuser %}
+        <p class="privacy-note"><small><em>Note: GPA information is private and only visible to staff members</em></small></p>
+        {% endif %}
+    </div>
+
+    <div class="search-form-container">
+        <form method="post" class="search-form">
+            {% csrf_token %}
+            <div class="search-options">
+                <div class="search-option">
+                    <label for="student_id">Search by Student ID:</label>
+                    <input type="text" id="student_id" name="student_id" placeholder="Enter student ID (e.g., 202012345)">
+                </div>
+                
+                <div class="search-divider">
+                    <span>OR</span>
+                </div>
+                
+                <div class="search-option">
+                    <label for="student_name">Search by Name:</label>
+                    <input type="text" id="student_name" name="student_name" placeholder="Enter student name (partial matches allowed)">
+                </div>
+            </div>
+            
+            <button type="submit" class="search-btn">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
+                    <path d="M10 18a7.952 7.952 0 0 0 4.897-1.688l4.396 4.396 1.414-1.414-4.396-4.396A7.952 7.952 0 0 0 18 10c0-4.411-3.589-8-8-8s-8 3.589-8 8 3.589 8 8 8zm0-14c3.309 0 6 2.691 6 6s-2.691 6-6 6-6-2.691-6-6 2.691-6 6-6z"/>
+                </svg>
+                Search Student
+            </button>
+        </form>
+    </div>
+
+    {% if search_query %}
+    <div class="search-results">
+        <div class="results-header">
+            <h3>Search Results for "{{ search_query }}" (by {{ search_type }})</h3>
+        </div>
+
+        {% if multiple_matches %}
+            <!-- Multiple name matches - show selection -->
+            <div class="multiple-matches">
+                <p class="matches-info">Multiple students found with similar names. Click on a student to see their full rankings:</p>
+                <div class="student-list">
+                    {% for match in search_results %}
+                    <div class="student-match-card">
+                        <div class="student-info">
+                            <h4>{{ match.student_name }}</h4>
+                            <p><strong>ID:</strong> {{ match.student_id }}</p>
+                            <p><strong>Appearances:</strong> {{ match.appearances }} semester(s)</p>
+                            <p><strong>Years:</strong> {{ match.years|join:", " }}</p>
+                        </div>
+                        <form method="post" style="display: inline;">
+                            {% csrf_token %}
+                            <input type="hidden" name="student_id" value="{{ match.student_id }}">
+                            <button type="submit" class="select-student-btn">View Rankings</button>
+                        </form>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+        {% elif search_results %}
+            <!-- Single student results - show rankings -->
+            <div class="student-rankings">
+                {% with first_result=search_results.0 %}
+                <div class="student-header">
+                    <h4>{{ first_result.student.student_name }}</h4>
+                    <p><strong>Student ID:</strong> {{ first_result.student.student_id }}</p>
+                    <p><strong>Major:</strong> {{ first_result.student.student_major }}</p>
+                </div>
+                {% endwith %}
+
+                <div class="rankings-list">
+                    {% for result in search_results %}
+                    <div class="ranking-card">
+                        <div class="semester-info">
+                            <h5>{{ result.semester_display }}</h5>
+                        </div>
+                        
+                        <div class="ranking-details">
+                            <div class="rankings-grid">
+                                <div class="rank-section overall">
+                                    <h6>Overall Ranking</h6>
+                                    <div class="rank-badge rank-{{ result.ranking|floatformat:0 }}">
+                                        <span class="rank-number">#{{ result.ranking }}</span>
+                                        <span class="rank-total">of {{ result.total_students }}</span>
+                                    </div>
+                                    <div class="rank-percentile">Top {{ result.percentage_rank }}%</div>
+                                </div>
+                                
+                                <div class="rank-section major">
+                                    <h6>Major Ranking</h6>
+                                    <div class="rank-badge rank-major rank-{{ result.major_ranking|floatformat:0 }}">
+                                        <span class="rank-number">#{{ result.major_ranking }}</span>
+                                        <span class="rank-total">of {{ result.total_students_in_major }}</span>
+                                    </div>
+                                    <div class="rank-percentile">Top {{ result.major_percentage_rank }}% in {{ result.student.student_major }}</div>
+                                </div>
+                            </div>
+                            
+                            <div class="student-stats">
+                                {% if result.show_gpa %}
+                                <div class="stat">
+                                    <label>GPA:</label>
+                                    <span class="gpa">{{ result.student.gpa }}</span>
+                                </div>
+                                {% endif %}
+                                <div class="stat">
+                                    <label>Credits Passed:</label>
+                                    <span class="credits">{{ result.student.passed_credits }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+        {% else %}
+            <!-- No results found -->
+            <div class="no-results">
+                <div class="no-results-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24">
+                        <path d="M12 2C6.486 2 2 6.486 2 12s4.486 10 10 10 10-4.486 10-10S17.514 2 12 2zm0 18c-4.411 0-8-3.589-8-8s3.589-8 8-8 8 3.589 8 8-3.589 8-8 8z"/>
+                        <path d="M11 11h2v6h-2zm0-4h2v2h-2z"/>
+                    </svg>
+                </div>
+                <h4>No Results Found</h4>
+                <p>No student found with {{ search_type }} "{{ search_query }}". Please check the spelling or try a different search term.</p>
+            </div>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+<script>
+// Clear the other input field when typing in one
+document.getElementById('student_id').addEventListener('input', function() {
+    if (this.value.trim() !== '') {
+        document.getElementById('student_name').value = '';
+    }
+});
+
+document.getElementById('student_name').addEventListener('input', function() {
+    if (this.value.trim() !== '') {
+        document.getElementById('student_id').value = '';
+    }
+});
+</script>
+
+{% endblock %}
