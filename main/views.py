@@ -3,7 +3,7 @@ from .models import Application, User, DeanListStudent, DeanList, Thread, Reply,
 from django.shortcuts import redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout
 from django.db import IntegrityError
-from django.http import HttpResponse, HttpResponseRedirect
+from django.http import HttpResponse, HttpResponseRedirect, HttpResponseForbidden
 from django.shortcuts import render
 from django.urls import reverse
 from django.core.paginator import Paginator
@@ -14,13 +14,333 @@ from django.core.files.base import ContentFile
 from datetime import datetime, timedelta
 from .utils import process_dean_list_excel
 from user_agents import parse
+from django.contrib import messages
+from django.db.models import Q
 import random
 from decimal import Decimal
 import os
+import re
+
+
+def cleanup_invalid_course_ids():
+    """
+    Utility function to delete courses with invalid course IDs.
+    Valid course IDs should have letters followed by exactly 3 digits (e.g., ACC201, FIN305).
+    Invalid examples: ACC0, MGTMKT1011220, ACC, FIN12, etc.
+    """
+    try:
+        from .models import Course
+        
+        # Pattern to match valid course IDs: letters followed by exactly 3 digits
+        valid_pattern = r'^[A-Z]+\d{3}$'
+        
+        # Find all courses with invalid IDs
+        all_courses = Course.objects.all()
+        invalid_courses = []
+        
+        for course in all_courses:
+            if not re.match(valid_pattern, course.course_id):
+                invalid_courses.append(course)
+        
+        if invalid_courses:
+            print(f"Found {len(invalid_courses)} courses with invalid course IDs:")
+            for course in invalid_courses:
+                print(f"  - {course.course_id}: {course.course_name}")
+            
+            # Delete invalid courses
+            invalid_count = len(invalid_courses)
+            Course.objects.filter(id__in=[c.id for c in invalid_courses]).delete()
+            
+            print(f"Successfully deleted {invalid_count} courses with invalid course IDs")
+            return invalid_count
+        else:
+            print("No courses with invalid course IDs found.")
+            return 0
+            
+    except Exception as e:
+        print(f"Error during course cleanup: {str(e)}")
+        return -1
 from django.db.models import Q
 
 def home(request):
     return render(request, 'frontend/index.html')
+
+def resources(request):
+    """Resources page with three main sections"""
+    return render(request, 'frontend/resources.html')
+
+def student_guide(request):
+    """Student guide page with downloadable guides by year"""
+    selected_year = request.GET.get('year', '2023')  # Default to 2023
+    
+    # Student guide data organized by year
+    student_guides = {
+        '2023': [
+            {
+                'title': 'Information Systems Management (نظم المعلومات الادارية)',
+                'description': 'Study guide for Information Systems Management major 2023',
+                'download_url': 'https://drive.google.com/file/d/1lakt3HdGxPv4cVSxvgOEMg6D25i2L3Zl/view?usp=drive_link',
+                'view_url': 'https://drive.google.com/file/d/1lakt3HdGxPv4cVSxvgOEMg6D25i2L3Zl/preview',
+                'category': 'Information Systems',
+                'size': 'PDF'
+            },
+            {
+                'title': 'Public Administration (الادارة العامه)',
+                'description': 'Study guide for Public Administration major 2023',
+                'download_url': 'https://drive.google.com/file/d/1I675DMORINOxrUENdvo8FvKJNO2na5OS/view?usp=drive_link',
+                'view_url': 'https://drive.google.com/file/d/1I675DMORINOxrUENdvo8FvKJNO2na5OS/preview',
+                'category': 'Public Administration',
+                'size': 'PDF'
+            },
+            {
+                'title': 'Economics (الاقتصاد)',
+                'description': 'Study guide for Economics major 2023',
+                'download_url': 'https://drive.google.com/file/d/1x19PYd7PMwMOMJIpb4kCfjucRHGzmQ14/view?usp=drive_link',
+                'view_url': 'https://drive.google.com/file/d/1x19PYd7PMwMOMJIpb4kCfjucRHGzmQ14/preview',
+                'category': 'Economics',
+                'size': 'PDF'
+            },
+            {
+                'title': 'Marketing (التسويق)',
+                'description': 'Study guide for Marketing major 2023',
+                'download_url': 'https://drive.google.com/file/d/1iTukxKgAfGcepcYi4yHpIrFEdjGOuFZn/view?usp=drive_link',
+                'view_url': 'https://drive.google.com/file/d/1iTukxKgAfGcepcYi4yHpIrFEdjGOuFZn/preview',
+                'category': 'Marketing',
+                'size': 'PDF'
+            },
+            {
+                'title': 'Management (الادارة)',
+                'description': 'Study guide for Management major 2023',
+                'download_url': 'https://drive.google.com/file/d/198SS0XmI0VsJUf_2sisrCkNfEuKFeGw_/view?usp=drive_link',
+                'view_url': 'https://drive.google.com/file/d/198SS0XmI0VsJUf_2sisrCkNfEuKFeGw_/preview',
+                'category': 'Management',
+                'size': 'PDF'
+            },
+            {
+                'title': 'Accounting (المحاسبة)',
+                'description': 'Study guide for Accounting major 2023',
+                'download_url': 'https://drive.google.com/file/d/1VynuiD99Oo0Hm51RE8Gwnjj7MYVxeq0w/view?usp=drive_link',
+                'view_url': 'https://drive.google.com/file/d/1VynuiD99Oo0Hm51RE8Gwnjj7MYVxeq0w/preview',
+                'category': 'Accounting',
+                'size': 'PDF'
+            },
+            {
+                'title': 'Operations Management & Supply Chain (ادارة العمليات وسلسلة الامدادات)',
+                'description': 'Study guide for Operations Management & Supply Chain major 2023',
+                'download_url': 'https://drive.google.com/file/d/1DtKEq9C0J3Gv2KNbQPSaZYLzsFpYAxCG/view?usp=drive_link',
+                'view_url': 'https://drive.google.com/file/d/1DtKEq9C0J3Gv2KNbQPSaZYLzsFpYAxCG/preview',
+                'category': 'Operations Management',
+                'size': 'PDF'
+            },
+            {
+                'title': 'Finance & Financial Institutions (التمويل و المنشآت الماليه)',
+                'description': 'Study guide for Finance & Financial Institutions major 2023',
+                'download_url': 'https://drive.google.com/file/d/1ohcceBnBC48cHOfA-YLMRETWC7sVpRqb/view?usp=drive_link',
+                'view_url': 'https://drive.google.com/file/d/1ohcceBnBC48cHOfA-YLMRETWC7sVpRqb/preview',
+                'category': 'Finance',
+                'size': 'PDF'
+            }
+        ],
+        '2024': [
+            {
+                'title': 'Management (الادارة)',
+                'description': 'Study guide for Management major 2024',
+                'download_url': 'https://drive.google.com/file/d/1OX-YpB0ZaX1uH8NoKCCGTOHR7EErXFg2/view?usp=drive_link',
+                'view_url': 'https://drive.google.com/file/d/1OX-YpB0ZaX1uH8NoKCCGTOHR7EErXFg2/preview',
+                'category': 'Management',
+                'size': 'PDF'
+            },
+            {
+                'title': 'Public Administration (الادارة العامه)',
+                'description': 'Study guide for Public Administration major 2024',
+                'download_url': 'https://drive.google.com/file/d/11QoBKNF3iJz25rRKExSaGFDpDQmBL5Pw/view?usp=drive_link',
+                'view_url': 'https://drive.google.com/file/d/11QoBKNF3iJz25rRKExSaGFDpDQmBL5Pw/preview',
+                'category': 'Public Administration',
+                'size': 'PDF'
+            },
+            {
+                'title': 'Accounting (المحاسبة)',
+                'description': 'Study guide for Accounting major 2024',
+                'download_url': 'https://drive.google.com/file/d/1m34Rpp1cDsVgLPqDk1h9ys66ChQ3WxYx/view?usp=drive_link',
+                'view_url': 'https://drive.google.com/file/d/1m34Rpp1cDsVgLPqDk1h9ys66ChQ3WxYx/preview',
+                'category': 'Accounting',
+                'size': 'PDF'
+            },
+            {
+                'title': 'Economics (الاقتصاد)',
+                'description': 'Study guide for Economics major 2024',
+                'download_url': 'https://drive.google.com/file/d/1ydN5ZCdIA8XXwEZDC-_sikMZYU2PcFr8/view?usp=drive_link',
+                'view_url': 'https://drive.google.com/file/d/1ydN5ZCdIA8XXwEZDC-_sikMZYU2PcFr8/preview',
+                'category': 'Economics',
+                'size': 'PDF'
+            },
+            {
+                'title': 'Marketing (التسويق)',
+                'description': 'Study guide for Marketing major 2024',
+                'download_url': 'https://drive.google.com/file/d/1fj9E_6rbGzgfFnRBdhuVx29aLdzBz5ba/view?usp=drive_link',
+                'view_url': 'https://drive.google.com/file/d/1fj9E_6rbGzgfFnRBdhuVx29aLdzBz5ba/preview',
+                'category': 'Marketing',
+                'size': 'PDF'
+            },
+            {
+                'title': 'Operations Management & Supply Chain (ادارة العمليات وسلسلة الامدادات)',
+                'description': 'Study guide for Operations Management & Supply Chain major 2024',
+                'download_url': 'https://drive.google.com/file/d/1P_Xad-CX_E1ztf9EkZ_mI2la_OXyOic5/view?usp=drive_link',
+                'view_url': 'https://drive.google.com/file/d/1P_Xad-CX_E1ztf9EkZ_mI2la_OXyOic5/preview',
+                'category': 'Operations Management',
+                'size': 'PDF'
+            },
+            {
+                'title': 'Finance & Financial Institutions (التمويل والمنشآت المالية)',
+                'description': 'Study guide for Finance & Financial Institutions major 2024',
+                'download_url': 'https://drive.google.com/file/d/1wtArpekA6YVFJpCiMurdUgk-q1Tv0oqD/view?usp=drive_link',
+                'view_url': 'https://drive.google.com/file/d/1wtArpekA6YVFJpCiMurdUgk-q1Tv0oqD/preview',
+                'category': 'Finance',
+                'size': 'PDF'
+            }
+        ],
+        '2025': [
+            {
+                'title': 'Public Administration (الادارة العامه)',
+                'description': 'Study guide for Public Administration major 2025',
+                'download_url': 'https://drive.google.com/file/d/1W_D0FPwy9a08xtg5_amD__qBAusxjcZD/view?usp=drive_link',
+                'view_url': 'https://drive.google.com/file/d/1W_D0FPwy9a08xtg5_amD__qBAusxjcZD/preview',
+                'category': 'Public Administration',
+                'size': 'PDF'
+            },
+            {
+                'title': 'Economics (الاقتصاد)',
+                'description': 'Study guide for Economics major 2025',
+                'download_url': 'https://drive.google.com/file/d/1uCxk6tg1DpTBhzWG4Dej5vGbo__SBmPZ/view?usp=drive_link',
+                'view_url': 'https://drive.google.com/file/d/1uCxk6tg1DpTBhzWG4Dej5vGbo__SBmPZ/preview',
+                'category': 'Economics',
+                'size': 'PDF'
+            },
+            {
+                'title': 'Marketing (التسويق)',
+                'description': 'Study guide for Marketing major 2025',
+                'download_url': 'https://drive.google.com/file/d/1_emotOjnlXXxMMOCZXkuniinLct2SQJs/view?usp=drive_link',
+                'view_url': 'https://drive.google.com/file/d/1_emotOjnlXXxMMOCZXkuniinLct2SQJs/preview',
+                'category': 'Marketing',
+                'size': 'PDF'
+            },
+            {
+                'title': 'Operations Management & Supply Chain (ادارة العمليات وسلسلة الامدادات)',
+                'description': 'Study guide for Operations Management & Supply Chain major 2025',
+                'download_url': 'https://drive.google.com/file/d/1u8e3ovjp-8KXM1m9cwER--U0WW2iGICj/view?usp=drive_link',
+                'view_url': 'https://drive.google.com/file/d/1u8e3ovjp-8KXM1m9cwER--U0WW2iGICj/preview',
+                'category': 'Operations Management',
+                'size': 'PDF'
+            },
+            {
+                'title': 'Information Systems Management (نظم المعلومات)',
+                'description': 'Study guide for Information Systems Management major 2025',
+                'download_url': 'https://drive.google.com/file/d/1KtUsdcfd5kHnDvVrvj3S54sG_DRiekYu/view?usp=drive_link',
+                'view_url': 'https://drive.google.com/file/d/1KtUsdcfd5kHnDvVrvj3S54sG_DRiekYu/preview',
+                'category': 'Information Systems',
+                'size': 'PDF'
+            },
+            {
+                'title': 'Finance & Financial Institutions (التمويل والمنشآت المالية)',
+                'description': 'Study guide for Finance & Financial Institutions major 2025',
+                'download_url': 'https://drive.google.com/file/d/1_UmQ2BwcrABtgYOIG-qVKmJxD0S099yA/view?usp=drive_link',
+                'view_url': 'https://drive.google.com/file/d/1_UmQ2BwcrABtgYOIG-qVKmJxD0S099yA/preview',
+                'category': 'Finance',
+                'size': 'PDF'
+            },
+            {
+                'title': 'Accounting (المحاسبة)',
+                'description': 'Study guide for Accounting major 2025',
+                'download_url': 'https://drive.google.com/file/d/1tqPPjTgJyxk_pyhx5SWHfwWTNnuSsf0g/view?usp=drive_link',
+                'view_url': 'https://drive.google.com/file/d/1tqPPjTgJyxk_pyhx5SWHfwWTNnuSsf0g/preview',
+                'category': 'Accounting',
+                'size': 'PDF'
+            },
+            {
+                'title': 'Management (الادارة)',
+                'description': 'Study guide for Management major 2025',
+                'download_url': 'https://drive.google.com/file/d/1iiJQGxDt609ZvtdyVS7qeRgFYQX9smfq/view?usp=drive_link',
+                'view_url': 'https://drive.google.com/file/d/1iiJQGxDt609ZvtdyVS7qeRgFYQX9smfq/preview',
+                'category': 'Management',
+                'size': 'PDF'
+            }
+        ]
+    }
+    
+    # Get guides for selected year
+    guides = student_guides.get(selected_year, [])
+    
+    # Group guides by category
+    guides_by_category = {}
+    for guide in guides:
+        category = guide['category']
+        if category not in guides_by_category:
+            guides_by_category[category] = []
+        guides_by_category[category].append(guide)
+    
+    context = {
+        'selected_year': selected_year,
+        'available_years': ['2023', '2024', '2025'],
+        'guides': guides,
+        'guides_by_category': guides_by_category,
+        'total_guides': len(guides)
+    }
+    
+    return render(request, 'frontend/student_guide.html', context)
+
+def course_descriptions(request):
+    """Course descriptions and syllabuses page"""
+    try:
+        from .models import Course
+        from django.core.paginator import Paginator
+        
+        # Get all courses ordered by course ID
+        courses = Course.objects.filter(is_active=True).order_by('course_id')
+        
+        # Filter by department if requested
+        department = request.GET.get('department')
+        if department:
+            courses = courses.filter(department=department)
+        
+        # Search functionality
+        search_query = request.GET.get('search')
+        if search_query:
+            courses = courses.filter(
+                Q(course_id__icontains=search_query) | 
+                Q(course_name__icontains=search_query)
+            )
+        
+        # Pagination
+        paginator = Paginator(courses, 25)  # Show 25 courses per page
+        page_number = request.GET.get('page')
+        page_obj = paginator.get_page(page_number)
+        
+        # Get unique departments for filter dropdown
+        departments_queryset = Course.objects.filter(is_active=True).values_list('department', flat=True)
+        departments = list(set([dept for dept in departments_queryset if dept]))  # Use set() to ensure uniqueness
+        
+        context = {
+            'page_obj': page_obj,
+            'courses': page_obj,
+            'departments': sorted(departments),
+            'current_department': department,
+            'search_query': search_query,
+            'total_courses': courses.count(),
+        }
+        
+    except Exception as e:
+        # Handle case where Course model doesn't exist or database issues
+        context = {
+            'page_obj': None,
+            'courses': [],
+            'departments': [],
+            'current_department': None,
+            'search_query': request.GET.get('search'),
+            'total_courses': 0,
+            'error_message': 'Course data is not available. Please contact the administrator.'
+        }
+    
+    return render(request, 'frontend/course_descriptions.html', context)
 
 def apply(request):
     if request.method == 'POST':
@@ -74,6 +394,86 @@ def portal(request):
     
     # user_count is now automatically available via context processor
     return render(request, 'frontend/portal.html', {'user': request.user})
+
+
+@login_required
+def refresh_courses(request):
+    """Admin view to refresh course data from CMU website"""
+    if not request.user.is_authenticated:
+        return HttpResponseRedirect(reverse("login"))
+    
+    # Check if user has permission (only members can access)
+    if not request.user.is_member:
+        return HttpResponseForbidden("Access denied. Members only.")
+    
+    if request.method == 'POST':
+        try:
+            from django.core.management import call_command
+            from .models import Course
+            import io
+            from contextlib import redirect_stdout
+            
+            # Capture the output of the management command
+            output = io.StringIO()
+            
+            # Delete all existing courses
+            deleted_count = Course.objects.count()
+            Course.objects.all().delete()
+            
+            # Run the fetch_courses command
+            with redirect_stdout(output):
+                call_command('fetch_courses')
+            
+            command_output = output.getvalue()
+            
+            # Get the new course count
+            new_count = Course.objects.count()
+            
+            # Run additional cleanup to ensure no invalid course IDs remain
+            cleanup_count = cleanup_invalid_course_ids()
+            final_count = Course.objects.count()
+            
+            success_message = f"Course refresh completed successfully!\nDeleted: {deleted_count} old courses\nFetched: {new_count} new courses"
+            
+            if cleanup_count > 0:
+                success_message += f"\nCleaned up: {cleanup_count} invalid course IDs\nFinal count: {final_count} valid courses"
+            
+            messages.success(request, success_message)
+            
+            # Log the refresh action
+            print(f"Course refresh by {request.user.username}: {deleted_count} deleted, {new_count} fetched, {cleanup_count} cleaned up")
+            
+        except Exception as e:
+            messages.error(
+                request,
+                f"Error refreshing courses: {str(e)}"
+            )
+    
+    # Get current course statistics
+    try:
+        from .models import Course
+        total_courses = Course.objects.count()
+        # Get unique departments properly using set() to avoid duplicates
+        departments_queryset = Course.objects.values_list('department', flat=True)
+        unique_departments = sorted(set([dept for dept in departments_queryset if dept]))
+        active_courses = Course.objects.filter(is_active=True).count()
+        courses_with_syllabus = Course.objects.filter(syllabus_url__isnull=False).count()
+    except Exception as e:
+        # Handle case where Course model doesn't exist or database table hasn't been created
+        total_courses = 0
+        unique_departments = []
+        active_courses = 0
+        courses_with_syllabus = 0
+    
+    context = {
+        'total_courses': total_courses,
+        'departments': unique_departments,
+        'active_courses': active_courses,
+        'courses_with_syllabus': courses_with_syllabus,
+        'user': request.user,
+    }
+    
+    return render(request, 'frontend/refresh_courses.html', context)
 
 
 def login_view(request):
@@ -376,13 +776,13 @@ def newdl(request):
         if not semester or not year or not excel_file:
             context = {
                 'message': 'All fields are required.',
-                'years': range(2012, 2046) 
+                'years': range(2007, 2046) 
             }
             return render(request, 'frontend/newdl.html', context)
         if not excel_file.name.endswith(('.xlsx', '.xls')):
             context = {
                 'message': 'Please upload a valid Excel file (.xlsx or .xls).',
-                'years': range(2012, 2046)
+                'years': range(2007, 2046)
             }
             return render(request, 'frontend/newdl.html', context)      
         try:
@@ -402,18 +802,18 @@ def newdl(request):
 
             return render(request, 'frontend/newdl.html', {
                 'message': f'Dean\'s list created successfully. {students_saved} students imported.',
-                'years': range(2012, 2046)
+                'years': range(2007, 2046)
             }) 
             
         except Exception as e:
             context = {
                 'message': f'Error creating dean\'s list: {str(e)}',
-                'years': range(2012, 2046)
+                'years': range(2007, 2046)
             }
             return render(request, 'frontend/newdl.html', context)
 
     context = {
-        'years': range(2012, 2046)  
+        'years': range(2007, 2046)
     }
     return render(request, 'frontend/newdl.html', context)
 
@@ -479,6 +879,9 @@ def deanslist(request):
         all_majors = DeanListStudent.objects.values_list('student_major', flat=True).distinct().order_by('student_major')
         available_majors = [major for major in all_majors if major and major.strip()]
     
+    # Get available years from the database
+    available_years = DeanListStudent.objects.values_list('year', flat=True).distinct().order_by('year')
+    
     context = {
         'available_lists': available_lists,
         'all_majors': sorted(available_majors),
@@ -486,7 +889,7 @@ def deanslist(request):
         'selected_semester': selected_semester,
         'selected_year': selected_year,
         'selected_major': selected_major,
-        'years': range(2012, 2046),
+        'years': sorted(available_years),
         'total_students': sum(len(students) for students in students_by_major.values()),
     }
     
@@ -903,6 +1306,7 @@ def contact(request):
         'threads_with_info': threads_with_info,
         'page_obj': page_obj,
         'user_is_staff': request.user.is_authenticated and (request.user.is_staff or request.user.is_superuser),
+        'user_can_delete': request.user.is_authenticated and (request.user.is_member or request.user.is_staff or request.user.is_superuser),
         'settings': settings,
     }
     
@@ -920,6 +1324,7 @@ def thread_detail(request, thread_id):
         'thread': thread,
         'replies': replies,
         'user_can_reply': request.user.is_authenticated and isinstance(request.user, User),
+        'user_can_delete': request.user.is_authenticated and (request.user.is_member or request.user.is_staff or request.user.is_superuser),
     }
     
     return render(request, 'frontend/thread_detail.html', context)
@@ -957,6 +1362,63 @@ def add_reply(request, thread_id):
             'content': reply.content
         })
         
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+
+@login_required
+@require_POST
+def delete_thread(request, thread_id):
+    """
+    Delete a thread and all its replies - only for members
+    """
+    # Check if user is a member
+    if not (request.user.is_member or request.user.is_staff or request.user.is_superuser):
+        return JsonResponse({'success': False, 'message': 'Only members can delete threads'})
+    
+    try:
+        thread = get_object_or_404(Thread, id=thread_id)
+        thread_title = thread.title
+        
+        # Delete the thread (this will also delete all replies due to cascade)
+        thread.delete()
+        
+        return JsonResponse({
+            'success': True, 
+            'message': f'Thread "{thread_title}" and all its replies have been deleted successfully'
+        })
+        
+    except Thread.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Thread not found'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+
+@login_required
+@require_POST
+def delete_reply(request, reply_id):
+    """
+    Delete a specific reply - only for members
+    """
+    # Check if user is a member
+    if not (request.user.is_member or request.user.is_staff or request.user.is_superuser):
+        return JsonResponse({'success': False, 'message': 'Only members can delete replies'})
+    
+    try:
+        reply = get_object_or_404(Reply, id=reply_id)
+        thread_id = reply.thread.id
+        
+        # Delete the reply
+        reply.delete()
+        
+        return JsonResponse({
+            'success': True, 
+            'message': 'Reply deleted successfully',
+            'thread_id': thread_id
+        })
+        
+    except Reply.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Reply not found'})
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)})
 

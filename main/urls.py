@@ -3,12 +3,17 @@ from . import views
 
 urlpatterns = [
     path('', views.home, name='home'),
+    path('resources/', views.resources, name='resources'),
+    path('resources/student-guide/', views.student_guide, name='student_guide'),
+    path('resources/course-descriptions/', views.course_descriptions, name='course_descriptions'),
     path('apply', views.apply, name='apply'),
     path('members', views.members, name='members'),
     path('deanslist', views.deanslist, name='deanslist'),
     path('contact', views.contact, name='contact'),
     path('contact/thread/<int:thread_id>/', views.thread_detail, name='thread_detail'),
     path('contact/thread/<int:thread_id>/reply/', views.add_reply, name='add_reply'),
+    path('contact/thread/<int:thread_id>/delete/', views.delete_thread, name='delete_thread'),
+    path('contact/reply/<int:reply_id>/delete/', views.delete_reply, name='delete_reply'),
     path('portal', views.portal, name='portal'),
     path('register', views.register, name='register'),
     path("login", views.login_view, name="login"),
@@ -23,4 +28,5 @@ urlpatterns = [
     path('portal/members/update-role/<int:user_id>/', views.update_member_role, name='update_member_role'),
     path('portal/members/delete/<int:user_id>/', views.delete_member, name='delete_member'),
     path('portal/thread-settings', views.thread_settings, name='thread_settings'),
+    path('portal/refresh-courses', views.refresh_courses, name='refresh_courses'),
 ]

@@ -140,3 +140,46 @@ class ThreadSettings(models.Model):
     def __str__(self):
         status = "Open" if self.allow_new_threads else "Closed"
         return f"Thread Creation: {status}"
+
+
+class Course(models.Model):
+    """Model to store course information from CMU syllabus system"""
+    course_id = models.CharField(max_length=20, unique=True, help_text="Course ID (e.g., FIN301)")
+    course_name = models.CharField(max_length=255, help_text="Full course name")
+    syllabus_url = models.URLField(blank=True, null=True, help_text="Direct download link to syllabus PDF")
+    info_url = models.URLField(blank=True, null=True, help_text="URL to course info page")
+    department = models.CharField(max_length=10, blank=True, null=True, help_text="Department code (FIN, MKT, etc.)")
+    credits = models.IntegerField(blank=True, null=True, help_text="Number of credit hours")
+    is_active = models.BooleanField(default=True, help_text="Whether the course is currently offered")
+    last_updated = models.DateTimeField(auto_now=True, help_text="Last time the course data was updated")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['course_id']
+        verbose_name = "Course"
+        verbose_name_plural = "Courses"
+
+    def __str__(self):
+        return f"{self.course_id} - {self.course_name}"
+
+    @property
+    def department_name(self):
+        """Get full department name from department code"""
+        dept_mapping = {
+            'ACC': 'Accounting',
+            'ECON': 'Economics', 
+            'ELU': 'English Language Unit',
+            'FIN': 'Finance',
+            'ISOM': 'Information Systems & Operations Management',
+            'MBA': 'Master of Business Administration',
+            'MGTMKT': 'Management & Marketing',
+            'PA': 'Public Administration',
+            # Legacy mappings
+            'MKT': 'Marketing', 
+            'MGT': 'Management',
+            'ECO': 'Economics',
+            'MIS': 'Management Information Systems',
+            'PMGT': 'Public Management',
+            'OM': 'Operations Management',
+        }
+        return dept_mapping.get(self.department, self.department or 'Unknown')

@@ -1,0 +1,540 @@
+{% extends "frontend/layout.html" %}
+{% load static %}
+
+{% block title %}Student Guide - Dean's List Council{% endblock %}
+
+{% block content %}
+<style>
+    .guide-container {
+        max-width: 1400px;
+        margin: 120px auto 60px;
+        padding: 0 20px;
+    }
+
+    .guide-header {
+        text-align: center;
+        margin-bottom: 40px;
+    }
+
+    .guide-title {
+        font-size: 3rem;
+        font-weight: 700;
+        color: #4A2E5F;
+        margin-bottom: 20px;
+    }
+
+    .guide-subtitle {
+        font-size: 1.2rem;
+        color: #666;
+        max-width: 600px;
+        margin: 0 auto;
+    }
+
+    .controls-section {
+        background: white;
+        border-radius: 12px;
+        padding: 25px;
+        margin-bottom: 30px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 20px;
+    }
+
+    .year-selector {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+
+    .year-dropdown {
+        padding: 10px 15px;
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+        font-size: 1rem;
+        background: white;
+        color: #333;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        min-width: 120px;
+    }
+
+    .year-dropdown:focus {
+        outline: none;
+        border-color: #4A2E5F;
+        box-shadow: 0 0 0 3px rgba(74, 46, 95, 0.1);
+    }
+
+    .stats-info {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        color: #666;
+        font-weight: 500;
+    }
+
+    .stat-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .guides-grid {
+        display: grid;
+        gap: 30px;
+    }
+
+    .category-section {
+        background: white;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+
+    .category-header {
+        background: linear-gradient(135deg, #4A2E5F, #6c5ce7);
+        color: white;
+        padding: 20px 25px;
+        font-size: 1.3rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .guides-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .guides-table th {
+        background: #f8f9fa;
+        padding: 15px 20px;
+        text-align: left;
+        font-weight: 600;
+        color: #333;
+        border-bottom: 2px solid #e9ecef;
+    }
+
+    .guides-table td {
+        padding: 20px;
+        border-bottom: 1px solid #e9ecef;
+        vertical-align: middle;
+    }
+
+    .guides-table tr:hover {
+        background: #f8f9fa;
+    }
+
+    .guide-title-cell {
+        font-weight: 600;
+        color: #333;
+        font-size: 1.1rem;
+    }
+
+    .guide-description {
+        color: #666;
+        font-size: 0.95rem;
+        margin-top: 5px;
+    }
+
+    .guide-category {
+        display: inline-block;
+        background: #e9ecef;
+        color: #495057;
+        padding: 4px 12px;
+        border-radius: 15px;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+
+    .guide-size {
+        color: #666;
+        font-weight: 500;
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .btn-download {
+        background: linear-gradient(135deg, #28a745, #20c997);
+        color: white;
+        text-decoration: none;
+        padding: 8px 16px;
+        border-radius: 6px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.3s ease;
+        border: none;
+        cursor: pointer;
+    }
+
+    .btn-download:hover {
+        background: linear-gradient(135deg, #218838, #1fa187);
+        transform: translateY(-2px);
+        color: white;
+        text-decoration: none;
+        box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+    }
+
+    .btn-view {
+        background: linear-gradient(135deg, #007bff, #6f42c1);
+        color: white;
+        text-decoration: none;
+        padding: 8px 16px;
+        border-radius: 6px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.3s ease;
+        border: none;
+        cursor: pointer;
+    }
+
+    .btn-view:hover {
+        background: linear-gradient(135deg, #0056b3, #5a32a3);
+        transform: translateY(-2px);
+        color: white;
+        text-decoration: none;
+        box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+    }
+
+    .btn-disabled {
+        background: #6c757d;
+        color: white;
+        padding: 8px 16px;
+        border-radius: 6px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        cursor: not-allowed;
+        opacity: 0.6;
+    }
+
+    .no-guides {
+        text-align: center;
+        padding: 60px 20px;
+        color: #666;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+
+    .no-guides-icon {
+        font-size: 3rem;
+        margin-bottom: 20px;
+        opacity: 0.6;
+    }
+
+    .back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: #4A2E5F;
+        text-decoration: none;
+        font-weight: 500;
+        margin-bottom: 20px;
+        transition: color 0.3s ease;
+    }
+
+    .back-link:hover {
+        color: #667eea;
+        text-decoration: none;
+    }
+
+    /* PDF Viewer Modal */
+    .pdf-modal {
+        display: none;
+        position: fixed;
+        z-index: 10000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.9);
+    }
+
+    .pdf-modal-content {
+        position: relative;
+        margin: 2% auto;
+        width: 90%;
+        height: 90%;
+        background: white;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    .pdf-modal-header {
+        background: #4A2E5F;
+        color: white;
+        padding: 15px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .pdf-close {
+        color: white;
+        font-size: 28px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: opacity 0.3s ease;
+    }
+
+    .pdf-close:hover {
+        opacity: 0.7;
+    }
+
+    .pdf-viewer {
+        width: 100%;
+        height: calc(100% - 60px);
+        border: none;
+    }
+
+    @media (max-width: 768px) {
+        .controls-section {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .year-selector {
+            justify-content: center;
+        }
+
+        .stats-info {
+            justify-content: center;
+        }
+
+        .guides-table {
+            font-size: 0.9rem;
+        }
+
+        .guides-table th,
+        .guides-table td {
+            padding: 12px 15px;
+        }
+
+        .action-buttons {
+            flex-direction: column;
+        }
+
+        .pdf-modal-content {
+            width: 95%;
+            height: 95%;
+            margin: 2.5% auto;
+        }
+    }
+</style>
+
+<div class="guide-container">
+    <a href="{% url 'resources' %}" class="back-link">
+        <i class="fas fa-arrow-left"></i>
+        Back to Resources
+    </a>
+
+    <div class="guide-header">
+        <h1 class="guide-title">Major Study Guides</h1>
+        <p class="guide-subtitle">Comprehensive study guides for each major to help you succeed in your academic program</p>
+    </div>
+
+    <!-- Controls Section -->
+    <div class="controls-section">
+        <div class="year-selector">
+            <label for="yearSelect" style="font-weight: 600; color: #333;">
+                <i class="fas fa-calendar-alt"></i> Select Year:
+            </label>
+            <select id="yearSelect" class="year-dropdown" onchange="changeYear(this.value)">
+                {% for year in available_years %}
+                    <option value="{{ year }}" {% if year == selected_year %}selected{% endif %}>
+                        {{ year }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="stats-info">
+            <div class="stat-item">
+                <i class="fas fa-file-pdf" style="color: #dc3545;"></i>
+                <span>{{ total_guides }} Guide{{ total_guides|pluralize }}</span>
+            </div>
+            <div class="stat-item">
+                <i class="fas fa-tags" style="color: #28a745;"></i>
+                <span>{{ guides_by_category|length }} Categor{{ guides_by_category|length|pluralize:"y,ies" }}</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Guides Content -->
+    {% if guides %}
+        <div class="guides-grid">
+            {% for category, category_guides in guides_by_category.items %}
+            <div class="category-section">
+                <div class="category-header">
+                    {% if category == 'Information Systems' %}
+                        <i class="fas fa-laptop-code"></i>
+                    {% elif category == 'Public Administration' %}
+                        <i class="fas fa-building"></i>
+                    {% elif category == 'Economics' %}
+                        <i class="fas fa-chart-line"></i>
+                    {% elif category == 'Marketing' %}
+                        <i class="fas fa-bullhorn"></i>
+                    {% elif category == 'Management' %}
+                        <i class="fas fa-users-cog"></i>
+                    {% elif category == 'Accounting' %}
+                        <i class="fas fa-calculator"></i>
+                    {% elif category == 'Operations Management' %}
+                        <i class="fas fa-cogs"></i>
+                    {% elif category == 'Finance' %}
+                        <i class="fas fa-dollar-sign"></i>
+                    {% elif category == 'Academic' %}
+                        <i class="fas fa-graduation-cap"></i>
+                    {% elif category == 'Registration' %}
+                        <i class="fas fa-clipboard-list"></i>
+                    {% elif category == 'Financial' %}
+                        <i class="fas fa-dollar-sign"></i>
+                    {% elif category == 'Campus Life' %}
+                        <i class="fas fa-university"></i>
+                    {% elif category == 'Activities' %}
+                        <i class="fas fa-users"></i>
+                    {% elif category == 'Health' %}
+                        <i class="fas fa-heartbeat"></i>
+                    {% elif category == 'Orientation' %}
+                        <i class="fas fa-compass"></i>
+                    {% else %}
+                        <i class="fas fa-book"></i>
+                    {% endif %}
+                    {{ category }} Study Guide
+                </div>
+                
+                <table class="guides-table">
+                    <thead>
+                        <tr>
+                            <th>Major Study Guide</th>
+                            <th>Department</th>
+                            <th>Format</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for guide in category_guides %}
+                        <tr>
+                            <td>
+                                <div class="guide-title-cell">{{ guide.title }}</div>
+                                <div class="guide-description">{{ guide.description }}</div>
+                            </td>
+                            <td>
+                                <span class="guide-category">{{ guide.category }}</span>
+                            </td>
+                            <td>
+                                <span class="guide-size">{{ guide.size }}</span>
+                            </td>
+                            <td>
+                                <div class="action-buttons">
+                                    {% if guide.download_url != '#' %}
+                                        <a href="{{ guide.download_url }}" target="_blank" class="btn-download">
+                                            <i class="fas fa-download"></i>
+                                            Download
+                                        </a>
+                                        <button onclick="viewPDF('{{ guide.view_url }}', '{{ guide.title|escapejs }}')" class="btn-view">
+                                            <i class="fas fa-eye"></i>
+                                            View
+                                        </button>
+                                    {% else %}
+                                        <span class="btn-disabled">
+                                            <i class="fas fa-clock"></i>
+                                            Coming Soon
+                                        </span>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="no-guides">
+            <div class="no-guides-icon">
+                <i class="fas fa-file-pdf"></i>
+            </div>
+            <h3>No Guides Available</h3>
+            <p>Student guides for {{ selected_year }} are not yet available. Please check back later or try a different year.</p>
+        </div>
+    {% endif %}
+</div>
+
+<!-- PDF Viewer Modal -->
+<div id="pdfModal" class="pdf-modal">
+    <div class="pdf-modal-content">
+        <div class="pdf-modal-header">
+            <h3 id="pdfTitle">PDF Viewer</h3>
+            <span class="pdf-close" onclick="closePDF()">&times;</span>
+        </div>
+        <iframe id="pdfViewer" class="pdf-viewer" src=""></iframe>
+    </div>
+</div>
+
+<script>
+// Function to change year
+function changeYear(year) {
+    const url = new URL(window.location);
+    url.searchParams.set('year', year);
+    window.location.href = url.toString();
+}
+
+// Function to view PDF
+function viewPDF(url, title) {
+    const modal = document.getElementById('pdfModal');
+    const viewer = document.getElementById('pdfViewer');
+    const titleElement = document.getElementById('pdfTitle');
+    
+    titleElement.textContent = title;
+    viewer.src = url;
+    modal.style.display = 'block';
+    
+    // Disable body scroll when modal is open
+    document.body.style.overflow = 'hidden';
+}
+
+// Function to close PDF viewer
+function closePDF() {
+    const modal = document.getElementById('pdfModal');
+    const viewer = document.getElementById('pdfViewer');
+    
+    modal.style.display = 'none';
+    viewer.src = '';
+    
+    // Re-enable body scroll
+    document.body.style.overflow = 'auto';
+}
+
+// Close modal when clicking outside of it
+window.onclick = function(event) {
+    const modal = document.getElementById('pdfModal');
+    if (event.target == modal) {
+        closePDF();
+    }
+}
+
+// Close modal with Escape key
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+        closePDF();
+    }
+});
+</script>
+{% endblock %}

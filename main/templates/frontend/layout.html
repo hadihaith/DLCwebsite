@@ -20,6 +20,8 @@
     <link rel="stylesheet" href="{% static 'frontend/assets/css/Noto%20Sans%20Old%20South%20Arabian.css' %}">
     <link rel="stylesheet" href="{% static 'frontend/assets/css/Raleway.css' %}">
     <link rel="stylesheet" href="{% static 'frontend/assets/css/bss-overrides.css' %}">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 
 </head>
 
@@ -30,13 +32,13 @@
         </div>
         <div class="collapse navbar-collapse" id="navcol-1" style="width: 100%; background-color: #4A2E5F; text-align: center;">
             <ul class="navbar-nav mx-auto">
-                <li class="nav-item"><a class="nav-link active" href="{% url 'home' %}" style="color: rgb(255,255,255);">Home</a></li>
-                <li class="nav-item"><a class="nav-link" href="{% url 'members' %}" style="color: rgba(255,255,255,0.65);"><span style="color: rgba(255, 255, 255, 0.8);">Members</span></a></li>
-                <li class="nav-item"><a class="nav-link" href="{% url 'deanslist' %}" style="color: rgba(255,255,255,0.65);">Deans List</a></li>
-                <li class="nav-item"><a class="nav-link" href="#" style="color: rgba(255,255,255,0.65);">Resources</a></li>
-                <li class="nav-item"><a class="nav-link" href="{% url 'contact' %}" style="color: rgba(255,255,255,0.65);">Contact</a></li>
-            </ul><a  role="button" href="{% url 'login' %}" style=" color: rgb(255, 255, 255); margin-right: 10px; font-size: 16px;"><button style="margin-right: 10px; min-width: 200px;" id="buttonasf">Members Portal</button></a>
-            <a  role="button" href="{% url 'apply' %}" style="color: rgb(255, 255, 255); margin-right: 10px;"><button id="buttonasf" style="margin-right: 10px;">Apply</button></a>
+                <li class="nav-item"><a class="nav-link active" href="{% url 'home' %}" style="color: rgb(255,255,255);"><i class="fas fa-home" style="margin-right: 8px;"></i>Home</a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url 'members' %}" style="color: rgba(255,255,255,0.65);"><span style="color: rgba(255, 255, 255, 0.8);"><i class="fas fa-users" style="margin-right: 8px;"></i>Members</span></a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url 'deanslist' %}" style="color: rgba(255,255,255,0.65);"><i class="fas fa-star" style="margin-right: 8px;"></i><span style="white-space: nowrap;">Dean's List</span></a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url 'resources' %}" style="color: rgba(255,255,255,0.65);"><i class="fas fa-book" style="margin-right: 8px;"></i>Resources</a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url 'contact' %}" style="color: rgba(255,255,255,0.65);"><i class="fas fa-envelope" style="margin-right: 8px;"></i>Contact</a></li>
+            </ul><a  role="button" href="{% url 'login' %}" style=" color: rgb(255, 255, 255); margin-right: 10px; font-size: 16px;"><button style="margin-right: 10px; min-width: 200px;" id="buttonasf"><i class="fas fa-user-shield" style="margin-right: 8px;"></i>Members Portal</button></a>
+            <a  role="button" href="{% url 'apply' %}" style="color: rgb(255, 255, 255); margin-right: 10px;"><button id="buttonasf" style="margin-right: 10px;"><i class="fas fa-file-alt" style="margin-right: 8px;"></i>Apply</button></a>
         </div>
     </nav>
     {% block content %}{% endblock %}

@@ -147,6 +147,125 @@
         font-weight: 500;
         color: #2c3e50;
     }
+    
+    .btn-outline-danger {
+        transition: all 0.3s ease;
+    }
+    
+    .btn-outline-danger:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
+    }
+    
+    .notification-container {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 9999;
+        max-width: 400px;
+    }
+    
+    .notification {
+        padding: 15px 20px;
+        margin-bottom: 10px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        opacity: 0;
+        transform: translateX(100%);
+        transition: all 0.3s ease;
+    }
+    
+    .notification.show {
+        opacity: 1;
+        transform: translateX(0);
+    }
+    
+    .notification.success {
+        background-color: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+    }
+    
+    .notification.error {
+        background-color: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+    }
+    
+    .notification .close-btn {
+        float: right;
+        background: none;
+        border: none;
+        font-size: 18px;
+        cursor: pointer;
+        color: inherit;
+        opacity: 0.7;
+        margin-left: 10px;
+    }
+    
+    .notification .close-btn:hover {
+        opacity: 1;
+    }
+    
+    .confirmation-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 10000;
+        display: none;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .confirmation-dialog {
+        background: white;
+        border-radius: 12px;
+        padding: 30px;
+        max-width: 500px;
+        margin: 20px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        text-align: center;
+    }
+    
+    .confirmation-dialog h4 {
+        color: #dc3545;
+        margin-bottom: 15px;
+    }
+    
+    .confirmation-dialog p {
+        margin-bottom: 25px;
+        color: #666;
+        line-height: 1.5;
+    }
+    
+    .confirmation-buttons {
+        display: flex;
+        gap: 15px;
+        justify-content: center;
+    }
+    
+    .btn-confirm {
+        background-color: #dc3545;
+        color: white;
+        border: none;
+        padding: 10px 25px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 500;
+    }
+    
+    .btn-cancel {
+        background-color: #6c757d;
+        color: white;
+        border: none;
+        padding: 10px 25px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 500;
+    }
 </style>
 
 <div class="container thread-detail-container">
@@ -161,10 +280,19 @@
                 <i class="fas fa-user" style="color: white; font-size: 22px;"></i>
             </div>
             <div class="flex-grow-1">
-                <h2 class="mb-2" data-text-content>{{ thread.title }}</h2>
-                <div class="thread-meta">
-                    Posted by <strong>Anonymous User</strong> on 
-                    {{ thread.created_at|date:"F d, Y \a\t g:i A" }}
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h2 class="mb-2" data-text-content>{{ thread.title }}</h2>
+                        <div class="thread-meta">
+                            Posted by <strong>Anonymous User</strong> on 
+                            {{ thread.created_at|date:"F d, Y \a\t g:i A" }}
+                        </div>
+                    </div>
+                    {% if user_can_delete %}
+                    <button class="btn btn-outline-danger btn-sm" onclick="deleteThread({{ thread.id }}, '{{ thread.title|escapejs }}')">
+                        <i class="fas fa-trash"></i> Delete Thread
+                    </button>
+                    {% endif %}
                 </div>
                 <div class="thread-content" data-text-content>
                     {{ thread.content|linebreaks }}
@@ -179,18 +307,27 @@
         
         {% if replies %}
             {% for reply in replies %}
-            <div class="reply-container">
+            <div class="reply-container" id="reply-{{ reply.id }}">
                 <div class="reply-header">
                     <div class="reply-icon">
                         <img src="{% static 'img/white_dlc.png' %}" alt="DLC" class="dlc-logo">
                     </div>
                     <div class="flex-grow-1">
-                        <strong>{{ reply.user.get_full_name }}</strong>
-                        {% if reply.user.role %}
-                            <span class="badge bg-secondary ms-2">{{ reply.user.get_role_display }}</span>
-                        {% endif %}
-                        <div class="reply-meta">
-                            {{ reply.created_at|date:"F d, Y \a\t g:i A" }}
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <strong>{{ reply.user.get_full_name }}</strong>
+                                {% if reply.user.role %}
+                                    <span class="badge bg-secondary ms-2">{{ reply.user.get_role_display }}</span>
+                                {% endif %}
+                                <div class="reply-meta">
+                                    {{ reply.created_at|date:"F d, Y \a\t g:i A" }}
+                                </div>
+                            </div>
+                            {% if user_can_delete %}
+                            <button class="btn btn-outline-danger btn-sm" onclick="deleteReply({{ reply.id }})">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
@@ -230,6 +367,24 @@
             <a href="{% url 'login' %}" class="alert-link">Login here</a>.
         </div>
     {% endif %}
+</div>
+
+    </div>
+</div>
+
+<!-- Notification Container -->
+<div id="notificationContainer" class="notification-container"></div>
+
+<!-- Confirmation Dialog -->
+<div id="confirmationOverlay" class="confirmation-overlay">
+    <div class="confirmation-dialog">
+        <h4><i class="fas fa-exclamation-triangle"></i> Confirm Deletion</h4>
+        <p id="confirmationMessage"></p>
+        <div class="confirmation-buttons">
+            <button id="confirmBtn" class="btn-confirm">Delete</button>
+            <button id="cancelBtn" class="btn-cancel">Cancel</button>
+        </div>
+    </div>
 </div>
 
 <!-- Include Font Awesome for icons -->
@@ -345,5 +500,143 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+// Notification system
+function showNotification(message, type = 'success') {
+    const container = document.getElementById('notificationContainer');
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    
+    notification.innerHTML = `
+        <span>${message}</span>
+        <button class="close-btn" onclick="closeNotification(this)">&times;</button>
+    `;
+    
+    container.appendChild(notification);
+    
+    // Trigger the animation
+    setTimeout(() => {
+        notification.classList.add('show');
+    }, 100);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        closeNotification(notification.querySelector('.close-btn'));
+    }, 5000);
+}
+
+function closeNotification(button) {
+    const notification = button.parentElement;
+    notification.classList.remove('show');
+    setTimeout(() => {
+        notification.remove();
+    }, 300);
+}
+
+// Confirmation dialog system
+function showConfirmation(message, onConfirm) {
+    const overlay = document.getElementById('confirmationOverlay');
+    const messageElement = document.getElementById('confirmationMessage');
+    const confirmBtn = document.getElementById('confirmBtn');
+    const cancelBtn = document.getElementById('cancelBtn');
+    
+    messageElement.textContent = message;
+    overlay.style.display = 'flex';
+    
+    // Remove previous event listeners
+    const newConfirmBtn = confirmBtn.cloneNode(true);
+    const newCancelBtn = cancelBtn.cloneNode(true);
+    confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+    cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+    
+    // Add new event listeners
+    newConfirmBtn.addEventListener('click', () => {
+        overlay.style.display = 'none';
+        onConfirm();
+    });
+    
+    newCancelBtn.addEventListener('click', () => {
+        overlay.style.display = 'none';
+    });
+    
+    // Close on overlay click
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+            overlay.style.display = 'none';
+        }
+    });
+}
+
+// Function to delete a thread
+function deleteThread(threadId, threadTitle) {
+    const message = `Are you sure you want to delete the thread "${threadTitle}" and all its replies? This action cannot be undone.`;
+    
+    showConfirmation(message, () => {
+        fetch(`/contact/thread/${threadId}/delete/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification(data.message, 'success');
+                setTimeout(() => {
+                    window.location.href = '{% url "contact" %}';
+                }, 2000);
+            } else {
+                showNotification('Error: ' + data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('An error occurred while deleting the thread.', 'error');
+        });
+    });
+}
+
+// Function to delete a reply
+function deleteReply(replyId) {
+    const message = 'Are you sure you want to delete this reply? This action cannot be undone.';
+    
+    showConfirmation(message, () => {
+        fetch(`/contact/reply/${replyId}/delete/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification('Reply deleted successfully', 'success');
+                // Remove the reply element from the page
+                const replyElement = document.getElementById(`reply-${replyId}`);
+                if (replyElement) {
+                    replyElement.style.transition = 'opacity 0.3s ease';
+                    replyElement.style.opacity = '0';
+                    setTimeout(() => {
+                        replyElement.remove();
+                        // Update the reply count
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1000);
+                    }, 300);
+                }
+            } else {
+                showNotification('Error: ' + data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('An error occurred while deleting the reply.', 'error');
+        });
+    });
+}
 </script>
 {% endblock %}
