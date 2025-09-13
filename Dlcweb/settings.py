@@ -29,8 +29,9 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-86162mfuujat(l3&k)8@m
 DEBUG = 'RENDER' not in os.environ and 'RAILWAY' not in os.environ
 
 ALLOWED_HOSTS = []
-CSRF_TRUSTED_ORIGINS = os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",")
-CSRF_TRUSTED_ORIGINS.append("https://dlcwebsite-production.up.railway.app")
+CSRF_TRUSTED_ORIGINS = [
+    "https://dlcwebsite-production.up.railway.app",
+]
 RAILWAY_ENV = os.environ.get('RAILWAY_ENVIRONMENT', '')
 if RAILWAY_ENV == 'production' or RAILWAY_ENV == 'development':
     RENDER_EXTERNAL_HOSTNAME = os.environ.get('RAILWAY_STATIC_URL')
