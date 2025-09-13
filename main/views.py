@@ -402,9 +402,9 @@ def refresh_courses(request):
     if not request.user.is_authenticated:
         return HttpResponseRedirect(reverse("login"))
     
-    # Check if user has permission (only members can access)
-    if not request.user.is_member:
-        return HttpResponseForbidden("Access denied. Members only.")
+    # Check if user has permission (only president and staff can access)
+    if not (request.user.role == 'PRESIDENT' or request.user.is_staff):
+        return HttpResponseForbidden("Access denied. President or staff access required.")
     
     if request.method == 'POST':
         try:

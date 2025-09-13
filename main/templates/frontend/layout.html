@@ -26,11 +26,11 @@
 </head>
 
 <body>
-    <nav class="navbar navbar-expand-md fixed-top py-3 navbar-shrink" id="mainNav" style="height: 103px;background: rgb(74, 46, 95);color: var(--bs-primary);box-shadow: 0px -3px 10px 10px var(--bs-navbar-active-color); position: relative; z-index: 2;">
+    <nav class="navbar navbar-expand-md fixed-top py-3 navbar-shrink" id="mainNav" style="height: 103px;background: rgb(74, 46, 95);color: var(--bs-primary);box-shadow: 0px -3px 10px 10px var(--bs-navbar-active-color); position: relative; z-index: 1000;">
         <div class="container" style="width: 100%;"><img class="img-fluid" width="996" height="996" src="{% static 'frontend/assets/img/DLCLogo.png' %}" style="width: 72px;background: var(--bs-light);padding: 5px;margin-right: 10px;border-radius: 94px;"><a class="navbar-brand d-flex align-items-center" href="{% url 'home' %}"><span style="text-align: center;transform: scale(1);margin: 0;margin-left: 0;color: var(--bs-light);font-family: 'Noto Sans Old South Arabian', sans-serif;">Dean's List Council</span></a><button data-bs-toggle="collapse" class="navbar-toggler" data-bs-target="#navcol-1"><span class="visually-hidden">Toggle navigation</span><span class="navbar-toggler-icon"></span></button>
             
         </div>
-        <div class="collapse navbar-collapse" id="navcol-1" style="width: 100%; background-color: #4A2E5F; text-align: center;">
+        <div class="collapse navbar-collapse" id="navcol-1" style="width: 100%; background-color: #4A2E5F; text-align: center; z-index: 1000;">
             <ul class="navbar-nav mx-auto">
                 <li class="nav-item"><a class="nav-link active" href="{% url 'home' %}" style="color: rgb(255,255,255);"><i class="fas fa-home" style="margin-right: 8px;"></i>Home</a></li>
                 <li class="nav-item"><a class="nav-link" href="{% url 'members' %}" style="color: rgba(255,255,255,0.65);"><span style="color: rgba(255, 255, 255, 0.8);"><i class="fas fa-users" style="margin-right: 8px;"></i>Members</span></a></li>
