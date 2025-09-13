@@ -840,7 +840,7 @@ def deanslist(request):
             students = DeanListStudent.objects.filter(
                 semester=selected_semester,
                 year=year_int
-            ).order_by('student_major', '-gpa', 'student_name')
+            ).order_by('student_major', '-gpa', '-passed_credits', 'student_name')
             
             # Get unique majors for this specific semester/year
             available_majors = students.values_list('student_major', flat=True).distinct().order_by('student_major')
