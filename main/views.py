@@ -1422,3 +1422,10 @@ def delete_reply(request, reply_id):
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)})
 
+
+def custom_404_view(request, exception=None):
+    """
+    Custom 404 error handler - works both as error handler and regular view
+    """
+    return render(request, 'frontend/404.html', status=404)
+

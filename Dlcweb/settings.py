@@ -31,6 +31,8 @@ DEBUG = 'RENDER' not in os.environ and 'RAILWAY' not in os.environ
 ALLOWED_HOSTS = []
 CSRF_TRUSTED_ORIGINS = [
     "https://dlcwebsite-production.up.railway.app",
+    "https://www.dlccba.live",
+    "https://dlccba.live",
 ]
 RAILWAY_ENV = os.environ.get('RAILWAY_ENVIRONMENT', '')
 if RAILWAY_ENV == 'production' or RAILWAY_ENV == 'development':
@@ -38,8 +40,10 @@ if RAILWAY_ENV == 'production' or RAILWAY_ENV == 'development':
     if RENDER_EXTERNAL_HOSTNAME:
         ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
     ALLOWED_HOSTS.append('.railway.app')
+    # Add the custom domain
+    ALLOWED_HOSTS.extend(['dlccba.live', 'www.dlccba.live'])
 else:
-    ALLOWED_HOSTS.extend(['localhost', '127.0.0.1'])
+    ALLOWED_HOSTS.extend(['localhost', '127.0.0.1', 'dlccba.live', 'www.dlccba.live'])
 
 
 # Application definition
@@ -156,3 +160,15 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 # Custom User Model
 AUTH_USER_MODEL = 'main.User'
+
+# Security settings for production
+if not DEBUG:
+    # HTTPS and security settings for production domain
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_HSTS_SECONDS = 31536000  # 1 year
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True

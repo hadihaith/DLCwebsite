@@ -29,4 +29,6 @@ urlpatterns = [
     path('portal/members/delete/<int:user_id>/', views.delete_member, name='delete_member'),
     path('portal/thread-settings', views.thread_settings, name='thread_settings'),
     path('portal/refresh-courses', views.refresh_courses, name='refresh_courses'),
+    # Test route for 404 page
+    path('test-404/', views.custom_404_view, name='test_404'),
 ]
