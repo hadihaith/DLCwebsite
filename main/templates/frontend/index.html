@@ -42,7 +42,25 @@
                     <div class="text-center">
                         <h1 class="display-4 fw-bold mb-5">Welcome to the&nbsp;<span class="underline" style="border-radius: 2px;border-bottom-style: dashed;"><span style="color: rgb(74, 46, 95);">Dean's</span></span>&nbsp;List Council.</h1>
                         <p class="fs-5 text-muted mb-5">Brains, Bonding, and Beyond, Where Excellence Meets Enjoyment!</p>
-               
+                    </div>
+
+                    <!-- PDF preview and modal viewer (same approach as student_guide) -->
+                    <div class="pdf-preview-card text-center mb-4" style="max-width:920px; margin:0 auto;">
+                        <h3 class="h5 mb-2">DLC Timeline (2000 - 2025)</h3>
+                        <div style="background: #fff; padding:16px; border-radius:10px; box-shadow:0 6px 18px rgba(0,0,0,0.12); display:flex; gap:16px; align-items:center;">
+                            <div style="flex:1; min-width:200px;">
+                                <img src="{% static 'frontend/assets/img/reach.png' %}" alt="DLC timeline" style="width:100%; height:180px; object-fit:cover; border-radius:6px;">
+                            </div>
+                            <div style="flex:2; text-align:left;">
+                                <p style="margin:0 0 8px; color:#333; font-weight:600;">DLC Timeline (2000 - 2025)</p>
+                                <p style="margin:0 0 12px; color:#666;">Scroll through the timeline PDF to review milestones, documents and important events for DLC across the years.</p>
+                                <div style="display:flex; gap:8px;">
+                                    <a href="https://drive.google.com/file/d/1uVeqFy0HIKR4Ox-FI9iCUPTdTfHS7k4n/view?usp=sharing" target="_blank" class="btn btn-download" style="background:linear-gradient(135deg,#007bff,#6f42c1); color:#fff; padding:8px 14px; border-radius:6px; text-decoration:none;">Open in new tab</a>
+                                    <button data-pdf-url="https://drive.google.com/file/d/1uVeqFy0HIKR4Ox-FI9iCUPTdTfHS7k4n/preview" data-pdf-title="DLC Timeline (2000 - 2025)" class="btn btn-view pdf-open-btn" style="background:linear-gradient(135deg,#28a745,#20c997); color:#fff; padding:8px 14px; border-radius:6px; border:none; cursor:pointer;">View</button>
+                                    <a href="https://drive.google.com/file/d/1uVeqFy0HIKR4Ox-FI9iCUPTdTfHS7k4n/view?usp=sharing" target="_blank" class="btn btn-download" style="background:linear-gradient(135deg,#6c757d,#495057); color:#fff; padding:8px 14px; border-radius:6px; text-decoration:none;">Download</a>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="col-12 col-lg-10 mx-auto">
@@ -243,4 +261,87 @@
     </section>
     <script src="{% static 'frontend/assets/js/index.js' %}"></script>
 </div>
+<!-- PDF Viewer Modal (shared with student_guide) -->
+<div id="pdfModal" class="pdf-modal" style="display:none; position:fixed; z-index:10000; left:0; top:0; width:100%; height:100%; background-color:rgba(0,0,0,0.9);">
+    <div class="pdf-modal-content" style="position:relative; margin:2% auto; width:90%; height:90%; background:white; border-radius:8px; overflow:hidden;">
+        <div class="pdf-modal-header" style="background:#4A2E5F; color:white; padding:15px 20px; display:flex; justify-content:space-between; align-items:center;">
+            <h3 id="pdfTitle">PDF Viewer</h3>
+            <span class="pdf-close" id="pdfCloseBtn" style="color:white; font-size:28px; font-weight:bold; cursor:pointer;">&times;</span>
+        </div>
+        <iframe id="pdfViewer" class="pdf-viewer" src="" style="width:100%; height:calc(100% - 60px); border:none;"></iframe>
+    </div>
+</div>
+
+<script>
+// Wire up the PDF modal openers
+document.addEventListener('DOMContentLoaded', function() {
+    function openPDF(url, title) {
+        var modal = document.getElementById('pdfModal');
+        var viewer = document.getElementById('pdfViewer');
+        var titleEl = document.getElementById('pdfTitle');
+        titleEl.textContent = title || 'PDF Viewer';
+
+        // If it's a Google Drive preview link (allowed), embed directly.
+        if (url && url.indexOf('drive.google.com') !== -1) {
+            viewer.src = url;
+            modal.style.display = 'block';
+            document.body.style.overflow = 'hidden';
+            return;
+        }
+
+        // Otherwise try a HEAD request to inspect headers. If the server sets
+        // Content-Disposition: attachment (or the HEAD fails), open in new tab
+        // instead of embedding (which would trigger a download).
+        try {
+            fetch(url, { method: 'HEAD' }).then(function(resp) {
+                var cd = resp.headers.get('content-disposition');
+                if (cd && cd.toLowerCase().includes('attachment')) {
+                    // Server forces download; open in new tab instead
+                    window.open(url, '_blank');
+                } else {
+                    // Safe to embed
+                    viewer.src = url;
+                    modal.style.display = 'block';
+                    document.body.style.overflow = 'hidden';
+                }
+            }).catch(function() {
+                // HEAD failed (CORS or other). Fallback to opening in new tab.
+                window.open(url, '_blank');
+            });
+        } catch (e) {
+            window.open(url, '_blank');
+        }
+    }
+
+    function closePDF() {
+        var modal = document.getElementById('pdfModal');
+        var viewer = document.getElementById('pdfViewer');
+        modal.style.display = 'none';
+        viewer.src = '';
+        document.body.style.overflow = 'auto';
+    }
+
+    document.querySelectorAll('.pdf-open-btn').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+            var url = btn.getAttribute('data-pdf-url');
+            var title = btn.getAttribute('data-pdf-title');
+            openPDF(url, title);
+        });
+    });
+
+    document.getElementById('pdfCloseBtn').addEventListener('click', closePDF);
+
+    // close when clicking outside
+    window.addEventListener('click', function(event) {
+        var modal = document.getElementById('pdfModal');
+        if (event.target === modal) closePDF();
+    });
+
+    // close on Escape
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') closePDF();
+    });
+});
+</script>
+
 {% endblock %}
