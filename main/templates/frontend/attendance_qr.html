@@ -1,0 +1,242 @@
+{% extends 'frontend/layout.html' %}
+
+{% block content %}
+<style>
+.qr-panel img {
+  max-width: 300px;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+.qr-panel img:hover {
+  transform: scale(1.05);
+}
+.qr-panel {
+  margin-top: 20px;
+  padding: 20px;
+  border: 2px solid #dee2e6;
+  border-radius: 8px;
+  background-color: #f8f9fa;
+}
+.qr-panel h5 {
+  color: #495057;
+  margin-bottom: 15px;
+}
+
+/* Fullscreen modal styles */
+.qr-fullscreen-modal {
+  display: none;
+  position: fixed;
+  z-index: 9999;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.95);
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+}
+.qr-fullscreen-modal.active {
+  display: flex;
+}
+.qr-fullscreen-modal h1 {
+  color: white;
+  margin-bottom: 30px;
+  font-size: 3rem;
+  font-weight: bold;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 3px;
+}
+.qr-fullscreen-modal h1.start-label {
+  color: #4CAF50;
+  text-shadow: 0 0 20px rgba(76, 175, 80, 0.5);
+}
+.qr-fullscreen-modal h1.end-label {
+  color: #2196F3;
+  text-shadow: 0 0 20px rgba(33, 150, 243, 0.5);
+}
+.qr-fullscreen-modal img {
+  max-width: 80vmin;
+  max-height: 80vmin;
+  border: 10px solid white;
+  border-radius: 20px;
+  box-shadow: 0 0 50px rgba(255, 255, 255, 0.3);
+}
+.qr-fullscreen-modal .close-btn {
+  position: absolute;
+  top: 20px;
+  right: 30px;
+  color: white;
+  font-size: 40px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: color 0.3s;
+}
+.qr-fullscreen-modal .close-btn:hover {
+  color: #ff4444;
+}
+.qr-fullscreen-modal .help-text {
+  color: #ccc;
+  margin-top: 20px;
+  font-size: 1.2rem;
+}
+</style>
+
+<div class="container mt-4">
+  <h2 class="mb-3">Attendance QR for {{ event.title }}</h2>
+
+  {% if not start_qr and not end_qr %}
+    <div class="alert alert-warning">No attendance secrets are configured for this event yet.</div>
+  {% else %}
+    <p class="text-muted">Choose which attendance window you want to generate a QR code for. Share the generated QR with attendees so they can scan and enter their 6-digit code.</p>
+
+    <div class="btn-group mb-4" role="group" aria-label="Choose attendance QR">
+      {% if start_qr %}
+        <button type="button" class="btn btn-outline-primary qr-toggle" data-qr-target="start">Show Start QR</button>
+      {% endif %}
+      {% if end_qr %}
+        <button type="button" class="btn btn-outline-success qr-toggle" data-qr-target="end">Show End QR</button>
+      {% endif %}
+    </div>
+
+    {% if start_qr %}
+      <div id="qr-start" class="qr-panel" style="display: none;">
+        <h5>📍 Start Attendance QR</h5>
+        <img src="{{ start_qr }}" alt="Start attendance QR" class="img-fluid qr-image" data-mode="start" title="Click to view fullscreen" />
+        <p class="mt-2"><strong>Direct link:</strong> <a href="{{ start_url }}" target="_blank" rel="noopener">{{ start_url }}</a></p>
+        <p class="text-muted"><small><i class="fas fa-expand"></i> Click the QR code to view in fullscreen</small></p>
+      </div>
+    {% endif %}
+
+    {% if end_qr %}
+      <div id="qr-end" class="qr-panel" style="display: none;">
+        <h5>✅ End Attendance QR</h5>
+        <img src="{{ end_qr }}" alt="End attendance QR" class="img-fluid qr-image" data-mode="end" title="Click to view fullscreen" />
+        <p class="mt-2"><strong>Direct link:</strong> <a href="{{ end_url }}" target="_blank" rel="noopener">{{ end_url }}</a></p>
+        <p class="text-muted"><small><i class="fas fa-expand"></i> Click the QR code to view in fullscreen</small></p>
+      </div>
+    {% endif %}
+  {% endif %}
+</div>
+
+<!-- Fullscreen modal -->
+<div id="qr-fullscreen" class="qr-fullscreen-modal">
+  <span class="close-btn" onclick="closeFullscreen()">&times;</span>
+  <h1 id="fullscreen-label"></h1>
+  <img id="fullscreen-qr" src="" alt="QR Code" />
+  <p class="help-text">Press ESC or click X to close</p>
+</div>
+
+<script>
+(function() {
+  'use strict';
+  
+  // Wait for DOM to be ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+  
+  function init() {
+    initQRToggle();
+    initFullscreen();
+  }
+  
+  function initQRToggle() {
+    const buttons = document.querySelectorAll('.qr-toggle');
+    const panels = document.querySelectorAll('.qr-panel');
+    
+    console.log('QR Toggle initialized. Buttons:', buttons.length, 'Panels:', panels.length);
+
+    function hideAll() {
+      panels.forEach(function(panel) {
+        panel.style.display = 'none';
+      });
+      buttons.forEach(function(btn) {
+        btn.classList.remove('active');
+      });
+    }
+
+    buttons.forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        const target = this.getAttribute('data-qr-target');
+        console.log('Button clicked, target:', target);
+        
+        if (!target) {
+          return;
+        }
+        
+        hideAll();
+        this.classList.add('active');
+        
+        const panel = document.getElementById('qr-' + target);
+        if (panel) {
+          panel.style.display = 'block';
+          console.log('Showing panel:', 'qr-' + target);
+        } else {
+          console.error('Panel not found:', 'qr-' + target);
+        }
+      });
+    });
+
+    // Auto-show first button if only one exists
+    if (buttons.length === 1) {
+      buttons[0].click();
+    }
+  }
+  
+  function initFullscreen() {
+    const qrImages = document.querySelectorAll('.qr-image');
+    qrImages.forEach(function(img) {
+      img.addEventListener('click', function() {
+        const mode = this.getAttribute('data-mode');
+        const src = this.src;
+        openFullscreen(src, mode);
+      });
+    });
+    
+    // Close on ESC key
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        closeFullscreen();
+      }
+    });
+    
+    // Close on click outside
+    const modal = document.getElementById('qr-fullscreen');
+    modal.addEventListener('click', function(e) {
+      if (e.target === modal) {
+        closeFullscreen();
+      }
+    });
+  }
+})();
+
+function openFullscreen(src, mode) {
+  const modal = document.getElementById('qr-fullscreen');
+  const img = document.getElementById('fullscreen-qr');
+  const label = document.getElementById('fullscreen-label');
+  
+  img.src = src;
+  
+  if (mode === 'start') {
+    label.textContent = '▶ START ATTENDANCE';
+    label.className = 'start-label';
+  } else if (mode === 'end') {
+    label.textContent = '■ END ATTENDANCE';
+    label.className = 'end-label';
+  }
+  
+  modal.classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeFullscreen() {
+  const modal = document.getElementById('qr-fullscreen');
+  modal.classList.remove('active');
+  document.body.style.overflow = 'auto';
+}
+</script>
+{% endblock %}

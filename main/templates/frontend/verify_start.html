@@ -1,0 +1,61 @@
+{% extends 'frontend/layout.html' %}
+
+{% block content %}
+{% with current_mode=mode|default:'start' %}
+<div class="container mt-4">
+  <h2 class="mb-3">Enter your {{ current_mode }} attendance code for {{ event.title }}</h2>
+  {% if current_mode == 'end' %}
+    <p>
+      Event ends on
+      {% if event.end_date %}{{ event.end_date }}{% else %}{{ event.start_date }}{% endif %}
+      {% if event.end_time %} at {{ event.end_time }}{% elif event.start_time %} at {{ event.start_time }}{% endif %}
+    </p>
+  {% else %}
+    <p>Event starts on {{ event.start_date }}{% if event.start_time %} at {{ event.start_time }}{% endif %}</p>
+  {% endif %}
+  <p class="text-muted">Enter the 6-digit code shown after you registered. You'll see a confirmation if the code is valid for this event.</p>
+
+  {% if messages %}
+    {% for m in messages %}
+      <div class="alert alert-{{ m.tags }}">{{ m }}</div>
+    {% endfor %}
+  {% endif %}
+
+  <form method="post">
+    {% csrf_token %}
+    <div class="mb-3">
+      <label for="code" class="form-label">6-digit code</label>
+      <input id="code" name="code" class="form-control" />
+    </div>
+    
+    {% if current_mode == 'end' and sections %}
+    <div class="mb-3">
+      <label class="form-label"><strong>Select Your Section(s)</strong></label>
+      <div class="card" style="padding: 15px; background: #f8f9fa;">
+        <p class="text-muted mb-2" style="font-size: 13px;">
+          <i class="fas fa-info-circle"></i> Check the section(s) you belong to (optional but recommended for bonus recording):
+        </p>
+        {% for section in sections %}
+        <div class="form-check mb-2">
+          <input 
+            class="form-check-input" 
+            type="checkbox" 
+            name="sections" 
+            value="{{ section.id }}" 
+            id="section_{{ section.id }}"
+            {% if section.id in selected_section_ids %}checked{% endif %}
+          >
+          <label class="form-check-label" for="section_{{ section.id }}">
+            <strong>{{ section.section_code }}</strong> - {{ section.professor_name }}
+          </label>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+    
+    <button class="btn btn-primary">Check In</button>
+  </form>
+</div>
+{% endwith %}
+{% endblock %}

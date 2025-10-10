@@ -1,0 +1,98 @@
+{% extends 'frontend/layout.html' %}
+{% load static %}
+
+{% block content %}
+<section class="mt-5 pt-5">
+  <div class="container">
+    {% if event %}
+    <div class="row">
+      <div class="col-md-8">
+        <h1>{{ event.title }}</h1>
+        <p class="text-muted">{{ event.start_date }}{% if event.end_date and event.end_date != event.start_date %} - {{ event.end_date }}{% endif %} {% if event.start_time %}at {{ event.start_time }}{% endif %}</p>
+        <p>{{ event.description }}</p>
+        <hr />
+        <h5>Register Attendance</h5>
+        
+        {% if registration_allowed %}
+          <form method="post" action="">
+            {% csrf_token %}
+            <div class="mb-2">
+              <label for="student_id" class="form-label">Student ID</label>
+              <input type="text" id="student_id" name="student_id" class="form-control" required />
+            </div>
+            <div class="mb-2">
+              <label for="student_name" class="form-label">Student Name</label>
+              <input type="text" id="student_name" name="student_name" class="form-control" required />
+            </div>
+            <div class="mb-2">
+              <label for="email" class="form-label">Email</label>
+              <input type="email" id="email" name="email" class="form-control" required />
+            </div>
+            
+            <button type="submit" class="btn btn-primary">Get Code</button>
+          </form>
+        {% else %}
+          <div class="alert alert-warning">
+            <i class="fas fa-times-circle"></i> <strong>Registration Closed</strong><br>
+            This event has already ended. Registration is no longer available.
+            {% if event.start_date %}
+              <br><small>Event ended: {% if event.end_date and event.end_date != event.start_date %}{{ event.end_date }}{% else %}{{ event.start_date }}{% endif %}{% if event.end_time %} at {{ event.end_time }}{% elif event.start_time %} at {{ event.start_time }}{% endif %}</small>
+            {% endif %}
+          </div>
+        {% endif %}
+        {% if user.is_authenticated and user.is_member or user.is_authenticated and user.is_staff or user.is_authenticated and user.is_superuser %}
+          <div class="mt-3">
+            <a href="{% url 'attendance_qr' event.pk %}" class="btn btn-outline-secondary">
+              <i class="fas fa-qrcode"></i> Get attendance QR code
+            </a>
+            <a href="{% url 'manage_event_sections' event.pk %}" class="btn btn-outline-primary ms-2">
+              <i class="fas fa-chalkboard-teacher"></i> Manage Sections
+            </a>
+          </div>
+        {% endif %}
+      </div>
+      <div class="col-md-4">
+        {% if event.image_url %}
+        <div class="evt-image-wrapper mb-3">
+          <div class="evt-image-detail" style="display: flex; align-items: center; justify-content: center; padding: 8px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); max-width: 720px; max-height: 80vh; width: 100%; background: #f6f6f6;">
+            {% load image_utils %}
+            <img src="{{ event.image_url|normalize_image_url }}" alt="{{ event.title }}" loading="lazy" style="max-width: 100%x; max-height: 80vh; width: auto; height: auto; object-fit: contain; object-position: center; display: block;" />
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% else %}
+      <p>Event not found.</p>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}
+
+<style>
+/* Detail image: use contain so portrait images are fully visible and constrained to viewport */
+.evt-image-wrapper{width:100%;display:flex;align-items:center;justify-content:center}
+.evt-image-detail{background:#f6f6f6;display:flex;align-items:center;justify-content:center;padding:8px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.06);max-width:720px;max-height:80vh;width:100%;}
+.evt-image-detail img{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;object-position:center;display:block}
+</style>
+
+<script>
+// mirror the list auto-ratio detection for the detail image
+document.addEventListener('DOMContentLoaded', function(){
+  var img = document.querySelector('.evt-image-detail img');
+  if(!img) return;
+  function setRatio(){
+    var w = img.naturalWidth || img.width;
+    var h = img.naturalHeight || img.height;
+    if(!w || !h) return;
+    var ar = w/h;
+    var parent = img.closest('.evt-image-detail');
+    parent.classList.remove('ratio-16-9','ratio-4-3','ratio-1-1','ratio-9-16');
+    if(ar >= 1.6) parent.classList.add('ratio-16-9');
+    else if(ar >= 1.25) parent.classList.add('ratio-4-3');
+    else if(ar >= 0.85) parent.classList.add('ratio-1-1');
+    else parent.classList.add('ratio-9-16');
+  }
+  if(img.complete) setRatio(); else img.addEventListener('load', setRatio);
+});
+</script>

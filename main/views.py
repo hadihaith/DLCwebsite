@@ -20,6 +20,12 @@ import random
 from decimal import Decimal
 import os
 import re
+from .forms import EventForm
+import requests
+from django.http import HttpResponse, HttpResponseBadRequest
+from urllib.parse import urlparse, quote
+from django.views.decorators.http import require_POST
+from django.shortcuts import get_object_or_404
 
 
 def cleanup_invalid_course_ids():
@@ -393,7 +399,14 @@ def portal(request):
         })
     
     # user_count is now automatically available via context processor
-    return render(request, 'frontend/portal.html', {'user': request.user})
+    # include events for portal users
+    try:
+        from .models import Event
+        events = Event.objects.all().order_by('-start_date')
+    except Exception:
+        events = []
+
+    return render(request, 'frontend/portal.html', {'user': request.user, 'events': events})
 
 
 @login_required
@@ -505,6 +518,7 @@ def logout_view(request):
 def add_member(request):
     """
     Add new member functionality - accessible to all users but only functional for authorized roles
+    Supports both single member and bulk member creation
     """
     # Device detection - block mobile and tablet devices
     user_agent = parse(request.META.get('HTTP_USER_AGENT', ''))
@@ -520,42 +534,55 @@ def add_member(request):
     
     message = None
     error_message = None
+    bulk_results = None
     
     if request.method == "POST" and can_add_member:
-        username = request.POST.get("username", "").strip()
-        password = request.POST.get("password", "").strip()
-        first_name = request.POST.get("first_name", "").strip()
-        last_name = request.POST.get("last_name", "").strip()
-        role = request.POST.get("role", "MEMBER")
-        is_member = request.POST.get("is_member") == "on"
+        # Check if this is a bulk creation request
+        bulk_data = request.POST.get("bulk_data", "").strip()
         
-        # Validation
-        if not all([username, password, first_name, last_name]):
-            error_message = "All fields are required."
-        elif len(password) < 6:
-            error_message = "Password must be at least 6 characters long."
-        elif User.objects.filter(username=username).exists():
-            error_message = "Username already exists. Please choose a different username."
+        if bulk_data:
+            # Handle bulk member creation
+            bulk_results = process_bulk_member_creation(bulk_data)
+            if bulk_results['success_count'] > 0:
+                message = f"Successfully created {bulk_results['success_count']} member(s)."
+            if bulk_results['error_count'] > 0:
+                error_message = f"Failed to create {bulk_results['error_count']} member(s). See details below."
         else:
-            try:
-                # Create new user with hardcoded email
-                user = User.objects.create_user(
-                    username=username,
-                    email="sss@sss.com",
-                    password=password,
-                    first_name=first_name,
-                    last_name=last_name
-                )
-                user.role = role
-                user.is_member = is_member
-                user.save()
-                
-                message = f"Member '{first_name} {last_name}' has been successfully created with username '{username}'."
-                
-            except IntegrityError:
-                error_message = "An error occurred while creating the user. Username might already exist."
-            except Exception as e:
-                error_message = f"An unexpected error occurred: {str(e)}"
+            # Handle single member creation (existing logic)
+            username = request.POST.get("username", "").strip()
+            password = request.POST.get("password", "").strip()
+            first_name = request.POST.get("first_name", "").strip()
+            last_name = request.POST.get("last_name", "").strip()
+            role = request.POST.get("role", "MEMBER")
+            is_member = request.POST.get("is_member") == "on"
+            
+            # Validation
+            if not all([username, password, first_name, last_name]):
+                error_message = "All fields are required."
+            elif len(password) < 6:
+                error_message = "Password must be at least 6 characters long."
+            elif User.objects.filter(username=username).exists():
+                error_message = "Username already exists. Please choose a different username."
+            else:
+                try:
+                    # Create new user with hardcoded email
+                    user = User.objects.create_user(
+                        username=username,
+                        email="sss@sss.com",
+                        password=password,
+                        first_name=first_name,
+                        last_name=last_name
+                    )
+                    user.role = role
+                    user.is_member = is_member
+                    user.save()
+                    
+                    message = f"Member '{first_name} {last_name}' has been successfully created with username '{username}'."
+                    
+                except IntegrityError:
+                    error_message = "An error occurred while creating the user. Username might already exist."
+                except Exception as e:
+                    error_message = f"An unexpected error occurred: {str(e)}"
     
     elif request.method == "POST" and not can_add_member:
         error_message = "You don't have permission to add new members."
@@ -574,11 +601,130 @@ def add_member(request):
         'can_add_member': can_add_member,
         'message': message,
         'error_message': error_message,
+        'bulk_results': bulk_results,
         'role_choices': role_choices,
         'user': request.user,
     }
     
     return render(request, 'frontend/add_member.html', context)
+
+
+def process_bulk_member_creation(bulk_data):
+    """
+    Process bulk member creation from multiline string format:
+    username,password,First_name Last_name
+    
+    Example:
+    alaadlc,mar7badawli,Alaa El Haj
+    mai.Abd,mis2025,Maida Abdullah
+    
+    Returns dict with success_count, error_count, successes list, and errors list
+    """
+    results = {
+        'success_count': 0,
+        'error_count': 0,
+        'successes': [],
+        'errors': []
+    }
+    
+    lines = bulk_data.strip().split('\n')
+    
+    for line_num, line in enumerate(lines, start=1):
+        line = line.strip()
+        if not line:
+            continue  # Skip empty lines
+        
+        parts = [p.strip() for p in line.split(',')]
+        
+        if len(parts) != 3:
+            results['errors'].append({
+                'line': line_num,
+                'data': line,
+                'error': f'Invalid format. Expected 3 comma-separated values, got {len(parts)}.'
+            })
+            results['error_count'] += 1
+            continue
+        
+        username, password, full_name = parts
+        
+        # Split full name into first and last name
+        name_parts = full_name.split()
+        if len(name_parts) < 2:
+            results['errors'].append({
+                'line': line_num,
+                'data': line,
+                'error': 'Full name must contain at least first and last name.'
+            })
+            results['error_count'] += 1
+            continue
+        
+        first_name = name_parts[0]
+        last_name = ' '.join(name_parts[1:])  # Everything after first name is last name
+        
+        # Validate
+        if not username or not password or not first_name or not last_name:
+            results['errors'].append({
+                'line': line_num,
+                'data': line,
+                'error': 'Username, password, and full name cannot be empty.'
+            })
+            results['error_count'] += 1
+            continue
+        
+        if len(password) < 6:
+            results['errors'].append({
+                'line': line_num,
+                'data': line,
+                'error': 'Password must be at least 6 characters long.'
+            })
+            results['error_count'] += 1
+            continue
+        
+        if User.objects.filter(username=username).exists():
+            results['errors'].append({
+                'line': line_num,
+                'data': line,
+                'error': f'Username "{username}" already exists.'
+            })
+            results['error_count'] += 1
+            continue
+        
+        # Create the user
+        try:
+            user = User.objects.create_user(
+                username=username,
+                email="sss@sss.com",
+                password=password,
+                first_name=first_name,
+                last_name=last_name
+            )
+            user.role = 'MEMBER'
+            user.is_member = True
+            user.save()
+            
+            results['successes'].append({
+                'line': line_num,
+                'username': username,
+                'name': f'{first_name} {last_name}'
+            })
+            results['success_count'] += 1
+            
+        except IntegrityError:
+            results['errors'].append({
+                'line': line_num,
+                'data': line,
+                'error': f'Database error: Username "{username}" might already exist.'
+            })
+            results['error_count'] += 1
+        except Exception as e:
+            results['errors'].append({
+                'line': line_num,
+                'data': line,
+                'error': f'Unexpected error: {str(e)}'
+            })
+            results['error_count'] += 1
+    
+    return results
 
 
 @login_required
@@ -1428,4 +1574,829 @@ def custom_404_view(request, exception=None):
     Custom 404 error handler - works both as error handler and regular view
     """
     return render(request, 'frontend/404.html', status=404)
+
+
+def events_list(request):
+    """List upcoming and past events"""
+    try:
+        from .models import Event
+        # Show events in the order they were added (newest first)
+        qs = Event.objects.all().order_by('-created_at')
+        paginator = Paginator(qs, 9)  # 9 events per page
+        page_number = request.GET.get('page')
+        page_obj = paginator.get_page(page_number)
+        events = page_obj.object_list
+    except Exception:
+        page_obj = None
+        events = []
+
+    return render(request, 'frontend/events_list.html', {'events': events, 'page_obj': page_obj})
+
+
+def event_detail(request, pk):
+    """Show event details"""
+    from django.shortcuts import get_object_or_404
+    from datetime import datetime
+    try:
+        from .models import Event
+        event = get_object_or_404(Event, pk=pk)
+    except Exception:
+        event = None
+
+    # Check if registration is allowed (allowed before and during event, blocked after end)
+    registration_allowed = False
+    if event:
+        now = datetime.utcnow()
+        end_date = event.end_date or event.start_date
+        end_time = event.end_time or event.start_time or datetime.max.time()
+        event_end = datetime.combine(end_date, end_time)
+        
+        # Allow registration before event starts and during event, block after event ends
+        registration_allowed = now <= event_end
+
+    # If the attendance form was submitted, handle it here
+    if request.method == 'POST':
+        # Check if registration is allowed
+        if not registration_allowed:
+            messages.error(request, 'Registration is closed. This event has already ended.')
+            return render(request, 'frontend/event_detail.html', {'event': event, 'registration_allowed': registration_allowed})
+        
+        try:
+            from .models import Attendance
+        except Exception:
+            messages.error(request, 'Attendance model not available')
+            return render(request, 'frontend/event_detail.html', {'event': event, 'registration_allowed': registration_allowed})
+
+        student_id = request.POST.get('student_id', '').strip()
+        student_name = request.POST.get('student_name', '').strip()
+        student_email = request.POST.get('email', '').strip()
+
+        if not student_id or not student_name:
+            messages.error(request, 'Student ID and name are required.')
+            return render(request, 'frontend/event_detail.html', {'event': event, 'registration_allowed': registration_allowed})
+
+        # If an attendance record for this event+student exists, return the same code
+        existing = Attendance.objects.filter(event=event, student_id=student_id).first()
+        if existing:
+            code = existing.code
+            return render(request, 'frontend/event_code.html', {'event': event, 'student_id': student_id, 'student_name': student_name, 'code': code, 'existing': True})
+
+        # Generate and persist a unique 6-digit code for this event in a DB-safe way.
+        # We try to create the Attendance with a candidate code; on IntegrityError
+        # we retry (this avoids the check-then-create race condition).
+        import random
+        from django.db import IntegrityError as DjangoIntegrityError
+        from datetime import datetime
+
+        code = None
+        max_attempts = 20
+        for attempt in range(max_attempts):
+            candidate = f"{random.randint(0, 999999):06d}"
+            try:
+                attendance = Attendance.objects.create(
+                    event=event,
+                    student_id=student_id,
+                    student_name=student_name,
+                    email=student_email or None,
+                    code=candidate,
+                )
+                code = candidate
+                created = True
+                break
+            except DjangoIntegrityError:
+                # Could be a collision on (event, code) or (event, student_id).
+                # If student record appeared concurrently, reuse it.
+                existing = Attendance.objects.filter(event=event, student_id=student_id).first()
+                if existing:
+                    code = existing.code
+                    return render(request, 'frontend/event_code.html', {'event': event, 'student_id': student_id, 'student_name': student_name, 'code': code, 'existing': True})
+                # Otherwise assume code collision and retry
+                continue
+        else:
+            # fallback to a timestamp-based code if we couldn't get a unique 6-digit code
+            candidate = datetime.utcnow().strftime('%Y%m%d%H%M%S')
+            try:
+                attendance = Attendance.objects.create(
+                    event=event,
+                    student_id=student_id,
+                    student_name=student_name,
+                    email=student_email or None,
+                    code=candidate,
+                )
+                code = candidate
+            except Exception:
+                # If still failing, try to find an existing record (last resort)
+                existing = Attendance.objects.filter(event=event, student_id=student_id).first()
+                if existing:
+                    code = existing.code
+                    return render(request, 'frontend/event_code.html', {'event': event, 'student_id': student_id, 'student_name': student_name, 'code': code, 'existing': True})
+                messages.error(request, 'Could not register attendance at this time.')
+                return render(request, 'frontend/event_detail.html', {'event': event, 'registration_allowed': registration_allowed})
+
+        return render(request, 'frontend/event_code.html', {'event': event, 'student_id': student_id, 'student_name': student_name, 'code': code, 'existing': False})
+
+    return render(request, 'frontend/event_detail.html', {'event': event, 'registration_allowed': registration_allowed})
+
+
+def verify_start(request, a, b, c):
+    """Dynamic route: given three preset numbers, find the event with those secrets,
+    render a template to enter the attendee's code, and on POST set present_start=True
+    if (and only if) the event has started (date+time)."""
+    try:
+        from .models import Event, Attendance
+    except Exception:
+        return HttpResponseBadRequest('Models not available')
+
+    mode = 'start'
+    # Find the event matching the three start secret numbers
+    event = Event.objects.filter(secret_start_a=a, secret_start_b=b, secret_start_c=c).first()
+    if not event:
+        return render(request, 'frontend/verify_not_found.html', {'a': a, 'b': b, 'c': c, 'mode': mode})
+
+    context = {
+        'event': event,
+        'mode': mode,
+    }
+
+    if request.method == 'POST':
+        code = request.POST.get('code', '').strip()
+        if not code:
+            messages.error(request, 'Code is required')
+            return render(request, 'frontend/verify_start.html', context)
+
+        # Lookup attendance by event + code
+        attendance = Attendance.objects.filter(event=event, code=code).first()
+        if not attendance:
+            messages.error(request, 'Invalid code')
+            return render(request, 'frontend/verify_start.html', context)
+
+        # Check if event has started (compare date and time). If start_time is null, compare date only.
+        now = datetime.utcnow()
+        event_start = datetime.combine(event.start_date, event.start_time or datetime.min.time())
+
+        # If the event has started, record start attendance
+        if now >= event_start:
+            if not attendance.present_start:
+                attendance.present_start = True
+                attendance.save(update_fields=['present_start'])
+            success_context = {
+                'event': event,
+                'attendance': attendance,
+                'mode': mode,
+            }
+            return render(request, 'frontend/verify_success.html', success_context)
+        else:
+            messages.error(request, 'Event has not started yet')
+            return render(request, 'frontend/verify_start.html', context)
+
+    return render(request, 'frontend/verify_start.html', context)
+
+
+def verify_end(request, a, b, c):
+    """Same as verify_start but for the end attendance triplet. For now we only
+    implement setting present_end later; this route will mirror start logic but
+    target the secret_end_* fields."""
+    try:
+        from .models import Event, Attendance, EventSection
+    except Exception:
+        return HttpResponseBadRequest('Models not available')
+
+    mode = 'end'
+    event = Event.objects.filter(secret_end_a=a, secret_end_b=b, secret_end_c=c).first()
+    if not event:
+        return render(request, 'frontend/verify_not_found.html', {'a': a, 'b': b, 'c': c, 'mode': mode})
+
+    # Get sections for this event
+    sections = EventSection.objects.filter(event=event).order_by('section_code')
+    
+    context = {
+        'event': event,
+        'mode': mode,
+        'sections': sections,
+    }
+
+    if request.method == 'POST':
+        code = request.POST.get('code', '').strip()
+        if not code:
+            messages.error(request, 'Code is required')
+            return render(request, 'frontend/verify_start.html', context)
+
+        attendance = Attendance.objects.filter(event=event, code=code).first()
+        if not attendance:
+            messages.error(request, 'Invalid code')
+            return render(request, 'frontend/verify_start.html', context)
+        
+        # Add currently selected section IDs to context for pre-checking checkboxes
+        context['selected_section_ids'] = list(attendance.sections.values_list('id', flat=True))
+
+        # Determine when end attendance should be allowed. Prefer event end date/time,
+        # fall back to start date/time if end info is missing.
+        now = datetime.utcnow()
+        end_date = event.end_date or event.start_date
+        if event.end_time:
+            end_time = event.end_time
+        elif event.start_time:
+            end_time = event.start_time
+        else:
+            end_time = datetime.min.time()
+        event_end = datetime.combine(end_date, end_time)
+
+        if now >= event_end:
+            if not attendance.present_end:
+                attendance.present_end = True
+                attendance.save(update_fields=['present_end'])
+            
+            # Handle section selection
+            selected_section_ids = request.POST.getlist('sections')
+            if selected_section_ids:
+                attendance.sections.set(selected_section_ids)
+            
+            success_context = {
+                'event': event,
+                'attendance': attendance,
+                'mode': mode,
+            }
+            return render(request, 'frontend/verify_success.html', success_context)
+        else:
+            messages.error(request, 'Event has not ended yet')
+            return render(request, 'frontend/verify_start.html', context)
+
+    return render(request, 'frontend/verify_start.html', context)
+
+
+@login_required
+def attendance_qr(request, pk):
+    """Member-only page that shows QR links for start and end attendance verification.
+    
+    The QR codes encode URLs pointing to verify_start and verify_end views with the
+    event's three secret numbers as path parameters. For example:
+    - Start QR: /events/verify/start/123456/789012/345678/
+    - End QR: /events/verify/end/234567/890123/456789/
+    
+    The QR images are generated using Google Charts API (no external libraries required).
+    When attendees scan the QR, they're taken to the verify page where they enter their
+    6-digit attendance code to mark their start or end attendance.
+    """
+    try:
+        from .models import Event
+    except Exception:
+        return HttpResponseBadRequest('Models not available')
+
+    event = get_object_or_404(Event, pk=pk)
+
+    if not (getattr(request.user, 'is_member', False) or request.user.is_staff or request.user.is_superuser):
+        return HttpResponseForbidden('Permission denied')
+
+    # Build verify URLs
+    start_ok = event.secret_start_a is not None and event.secret_start_b is not None and event.secret_start_c is not None
+    end_ok = event.secret_end_a is not None and event.secret_end_b is not None and event.secret_end_c is not None
+
+    start_url = None
+    end_url = None
+    if start_ok:
+        start_url = request.build_absolute_uri(reverse('verify_start', args=(event.secret_start_a, event.secret_start_b, event.secret_start_c)))
+    if end_ok:
+        end_url = request.build_absolute_uri(reverse('verify_end', args=(event.secret_end_a, event.secret_end_b, event.secret_end_c)))
+
+    # Generate QR image URLs using QR Server API (Google Charts API is deprecated)
+    def qr_img_url(target):
+        # URL-encode the target to ensure special characters are properly handled
+        encoded_target = quote(target, safe='')
+        # Using api.qrserver.com - a free, reliable QR code API
+        return f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={encoded_target}"
+
+    context = {
+        'event': event,
+        'start_url': start_url,
+        'end_url': end_url,
+        'start_qr': qr_img_url(start_url) if start_url else None,
+        'end_qr': qr_img_url(end_url) if end_url else None,
+    }
+
+    return render(request, 'frontend/attendance_qr.html', context)
+
+
+
+@login_required
+def create_event(request):
+    """Allow portal members to create an event. Only users with is_member True or staff are allowed."""
+    # permission check
+    if not (request.user.is_authenticated and (request.user.is_staff or getattr(request.user, 'is_member', False))):
+        messages.error(request, 'You do not have permission to create events.')
+        return redirect('portal')
+
+    if request.method == 'POST':
+        form = EventForm(request.POST, request.FILES)
+        if form.is_valid():
+            event = form.save()
+            messages.success(request, f'Event "{event.title}" created successfully.')
+            return redirect('events')
+        else:
+            messages.error(request, 'Please correct the errors below.')
+    else:
+        form = EventForm()
+
+    return render(request, 'frontend/create_event.html', {'form': form})
+
+
+@login_required
+def manage_event_sections(request, pk):
+    """Allow members to add/edit/delete professors and sections for an event."""
+    if not (getattr(request.user, 'is_member', False) or request.user.is_staff or request.user.is_superuser):
+        messages.error(request, 'You do not have permission to manage event sections.')
+        return redirect('portal')
+    
+    try:
+        from .models import Event, EventSection
+    except Exception:
+        messages.error(request, 'Models not available')
+        return redirect('portal')
+    
+    event = get_object_or_404(Event, pk=pk)
+    sections = EventSection.objects.filter(event=event).order_by('section_code')
+    
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        
+        if action == 'add':
+            professor_name = request.POST.get('professor_name', '').strip()
+            section_code = request.POST.get('section_code', '').strip()
+            
+            if professor_name and section_code:
+                try:
+                    EventSection.objects.create(
+                        event=event,
+                        professor_name=professor_name,
+                        section_code=section_code
+                    )
+                    messages.success(request, f'Section "{section_code}" added successfully.')
+                except Exception as e:
+                    messages.error(request, f'Error adding section: {str(e)}')
+            else:
+                messages.error(request, 'Professor name and section code are required.')
+        
+        elif action == 'delete':
+            section_id = request.POST.get('section_id')
+            if section_id:
+                try:
+                    section = EventSection.objects.get(pk=section_id, event=event)
+                    section_name = str(section)
+                    section.delete()
+                    messages.success(request, f'Section "{section_name}" deleted.')
+                except EventSection.DoesNotExist:
+                    messages.error(request, 'Section not found.')
+                except Exception as e:
+                    messages.error(request, f'Error deleting section: {str(e)}')
+        
+        return redirect('manage_event_sections', pk=event.pk)
+    
+    return render(request, 'frontend/manage_event_sections.html', {
+        'event': event,
+        'sections': sections
+    })
+
+
+def image_proxy(request):
+    """Simple image proxy for a small set of allowed hosts.
+
+    Use: /image-proxy/?url=<encoded_url>
+    This avoids embedding issues when third-party hosts send restrictive CORP/CSP headers.
+    """
+    url = request.GET.get('url')
+    if not url:
+        return HttpResponseBadRequest('Missing url')
+
+    parsed = urlparse(url)
+    host = parsed.netloc.lower()
+
+    # Whitelist hosts known to be safe for proxying. Adjust as needed.
+    allowed_hosts = [
+        'photos.fife.usercontent.google.com',
+        'lh3.googleusercontent.com',
+        'drive.google.com'
+    ]
+
+    if host not in allowed_hosts:
+        return HttpResponseBadRequest('Host not allowed')
+
+    try:
+        resp = requests.get(url, stream=True, timeout=10)
+    except Exception as e:
+        return HttpResponseBadRequest('Error fetching image')
+
+    if resp.status_code != 200:
+        return HttpResponseBadRequest('Upstream returned %s' % resp.status_code)
+
+    content_type = resp.headers.get('Content-Type', 'application/octet-stream')
+    data = resp.content
+
+    response = HttpResponse(data, content_type=content_type)
+    # We explicitly don't forward CSP/CORP headers from upstream.
+    # Allow caching by the browser for a short time; adjust Cache-Control as you prefer.
+    response['Cache-Control'] = 'public, max-age=3600'
+    return response
+
+
+@login_required
+@require_POST
+def delete_event(request, event_id):
+    """Allow members or staff to delete an event from the portal."""
+    # permission: staff or member
+    if not (request.user.is_staff or getattr(request.user, 'is_member', False)):
+        return HttpResponseBadRequest('Permission denied')
+    # Import Event from local models and fetch
+    try:
+        from .models import Event
+    except Exception:
+        return HttpResponseBadRequest('Event model not available')
+
+    event = get_object_or_404(Event, pk=event_id)
+    title = event.title
+    event.delete()
+    messages.success(request, f'Event "{title}" deleted.')
+    return redirect('portal')
+
+
+@login_required
+def events_dashboard(request):
+    """Events dashboard for members to view all events and attendance data."""
+    if not request.user.is_authenticated:
+        return HttpResponseRedirect(reverse("login"))
+    
+    # Check member permission
+    if not (getattr(request.user, 'is_member', False) or request.user.is_staff or request.user.is_superuser):
+        messages.error(request, 'You do not have permission to access the events dashboard.')
+        return redirect('portal')
+    
+    # Device detection - block mobile and tablet devices
+    user_agent = parse(request.META.get('HTTP_USER_AGENT', ''))
+    if user_agent.is_mobile or user_agent.is_tablet:
+        return render(request, 'frontend/desktop_only.html', {
+            'device_type': 'mobile device' if user_agent.is_mobile else 'tablet'
+        })
+    
+    try:
+        from .models import Event, Attendance
+        from datetime import datetime
+        
+        events = Event.objects.all().order_by('-start_date')
+        
+        # Add attendance stats and status to each event
+        events_with_stats = []
+        now = datetime.now().date()
+        
+        for event in events:
+            # Determine event status
+            if event.end_date < now:
+                status = 'past'
+            elif event.start_date > now:
+                status = 'upcoming'
+            else:
+                status = 'ongoing'
+            
+            # Get attendance stats
+            attendances = Attendance.objects.filter(event=event)
+            total = attendances.count()
+            start_count = attendances.filter(present_start=True).count()
+            end_count = attendances.filter(present_end=True).count()
+            
+            event.status = status
+            event.total_registered = total
+            event.start_attendance = start_count
+            event.end_attendance = end_count
+            
+            events_with_stats.append(event)
+        
+        return render(request, 'frontend/events_dashboard.html', {
+            'events': events_with_stats
+        })
+    except Exception as e:
+        messages.error(request, f'Error loading events dashboard: {str(e)}')
+        return redirect('portal')
+
+
+@login_required
+def event_attendance_data(request, pk):
+    """API endpoint to fetch attendance data for a specific event."""
+    if not (getattr(request.user, 'is_member', False) or request.user.is_staff or request.user.is_superuser):
+        return JsonResponse({'error': 'Permission denied'}, status=403)
+    
+    try:
+        from .models import Event, Attendance
+        
+        event = get_object_or_404(Event, pk=pk)
+        filter_type = request.GET.get('filter', 'all')
+        
+        # Get all attendances for the event
+        attendances = Attendance.objects.filter(event=event).order_by('student_name')
+        
+        # Apply filters
+        if filter_type == 'start':
+            attendances = attendances.filter(present_start=True)
+        elif filter_type == 'end':
+            attendances = attendances.filter(present_end=True)
+        elif filter_type == 'both':
+            attendances = attendances.filter(present_start=True, present_end=True)
+        
+        # Calculate statistics
+        all_attendances = Attendance.objects.filter(event=event)
+        total = all_attendances.count()
+        start_only = all_attendances.filter(present_start=True, present_end=False).count()
+        end_only = all_attendances.filter(present_start=False, present_end=True).count()
+        both = all_attendances.filter(present_start=True, present_end=True).count()
+        
+        # Format attendance data
+        attendance_list = []
+        for att in attendances:
+            # Get sections for this attendance
+            sections_list = [f"{s.section_code} ({s.professor_name})" for s in att.sections.all()]
+            
+            attendance_list.append({
+                'student_id': att.student_id,
+                'student_name': att.student_name,
+                'email': att.email or '',
+                'code': att.code,
+                'present_start': att.present_start,
+                'present_end': att.present_end,
+                'sections': ', '.join(sections_list) if sections_list else 'N/A',
+            })
+        
+        return JsonResponse({
+            'stats': {
+                'total': total,
+                'start_only': start_only,
+                'end_only': end_only,
+                'both': both,
+            },
+            'attendances': attendance_list
+        })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+def export_event_sections(request, pk):
+    """Export event attendance data organized by sections to Excel files (one per section)."""
+    if not (getattr(request.user, 'is_member', False) or request.user.is_staff or request.user.is_superuser):
+        messages.error(request, 'You do not have permission to export attendance data.')
+        return redirect('events_dashboard')
+    
+    try:
+        from .models import Event, EventSection, Attendance
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        from django.http import HttpResponse
+        from io import BytesIO
+        import zipfile
+        
+        event = get_object_or_404(Event, pk=pk)
+        sections = EventSection.objects.filter(event=event).order_by('section_code')
+        
+        if not sections.exists():
+            messages.error(request, 'No sections found for this event.')
+            return redirect('events_dashboard')
+        
+        # Create a zip file to hold multiple Excel files (one per section)
+        zip_buffer = BytesIO()
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+            
+            for section in sections:
+                # Create a new workbook for each section
+                wb = Workbook()
+                ws = wb.active
+                ws.title = f"{section.section_code[:25]}"  # Excel sheet name limit is 31 chars
+                
+                # Title
+                ws.merge_cells('A1:E1')
+                title_cell = ws['A1']
+                title_cell.value = f"{event.title} - Attendance Report"
+                title_cell.font = Font(bold=True, size=14, color="FFFFFF")
+                title_cell.fill = PatternFill(start_color="2C3E50", end_color="2C3E50", fill_type="solid")
+                title_cell.alignment = Alignment(horizontal='center', vertical='center')
+                ws.row_dimensions[1].height = 30
+                
+                # Section info
+                ws.merge_cells('A2:E2')
+                section_cell = ws['A2']
+                section_cell.value = f"Section: {section.section_code} - Professor: {section.professor_name}"
+                section_cell.font = Font(bold=True, size=12, color="FFFFFF")
+                section_cell.fill = PatternFill(start_color="3498DB", end_color="3498DB", fill_type="solid")
+                section_cell.alignment = Alignment(horizontal='center', vertical='center')
+                ws.row_dimensions[2].height = 25
+                
+                # Event date info
+                ws.merge_cells('A3:E3')
+                date_cell = ws['A3']
+                date_str = f"Event Date: {event.start_date}"
+                if event.end_date and event.end_date != event.start_date:
+                    date_str += f" to {event.end_date}"
+                date_cell.value = date_str
+                date_cell.font = Font(italic=True, size=10)
+                date_cell.alignment = Alignment(horizontal='center')
+                ws.row_dimensions[3].height = 20
+                
+                # Headers
+                headers = ['Student ID', 'Student Name', 'Email', 'Attended Start', 'Attended End']
+                header_fill = PatternFill(start_color="34495E", end_color="34495E", fill_type="solid")
+                header_font = Font(bold=True, color="FFFFFF", size=11)
+                border = Border(
+                    left=Side(style='thin'),
+                    right=Side(style='thin'),
+                    top=Side(style='thin'),
+                    bottom=Side(style='thin')
+                )
+                
+                for col_num, header in enumerate(headers, 1):
+                    cell = ws.cell(row=5, column=col_num)
+                    cell.value = header
+                    cell.font = header_font
+                    cell.fill = header_fill
+                    cell.alignment = Alignment(horizontal='center', vertical='center')
+                    cell.border = border
+                ws.row_dimensions[5].height = 25
+                
+                # Get attendances for this section
+                attendances = Attendance.objects.filter(
+                    event=event,
+                    sections=section
+                ).order_by('student_name')
+                
+                # Data rows
+                row_num = 6
+                for att in attendances:
+                    ws.cell(row=row_num, column=1, value=att.student_id).border = border
+                    ws.cell(row=row_num, column=2, value=att.student_name).border = border
+                    ws.cell(row=row_num, column=3, value=att.email or 'N/A').border = border
+                    
+                    # Attended Start - Yes/No
+                    start_cell = ws.cell(row=row_num, column=4, value='Yes' if att.present_start else 'No')
+                    start_cell.border = border
+                    start_cell.alignment = Alignment(horizontal='center')
+                    if att.present_start:
+                        start_cell.font = Font(color="27AE60", bold=True)
+                    else:
+                        start_cell.font = Font(color="E74C3C", bold=True)
+                    
+                    # Attended End - Yes/No
+                    end_cell = ws.cell(row=row_num, column=5, value='Yes' if att.present_end else 'No')
+                    end_cell.border = border
+                    end_cell.alignment = Alignment(horizontal='center')
+                    if att.present_end:
+                        end_cell.font = Font(color="27AE60", bold=True)
+                    else:
+                        end_cell.font = Font(color="E74C3C", bold=True)
+                    
+                    row_num += 1
+                
+                # Add summary row
+                ws.merge_cells(f'A{row_num + 1}:C{row_num + 1}')
+                summary_cell = ws.cell(row=row_num + 1, column=1)
+                summary_cell.value = f"Total Students: {attendances.count()}"
+                summary_cell.font = Font(bold=True, size=11)
+                summary_cell.alignment = Alignment(horizontal='left')
+                
+                # Adjust column widths
+                ws.column_dimensions['A'].width = 15
+                ws.column_dimensions['B'].width = 30
+                ws.column_dimensions['C'].width = 30
+                ws.column_dimensions['D'].width = 18
+                ws.column_dimensions['E'].width = 18
+                
+                # Save workbook to bytes
+                excel_buffer = BytesIO()
+                wb.save(excel_buffer)
+                excel_buffer.seek(0)
+                
+                # Add to zip file
+                safe_section_name = "".join(c for c in section.section_code if c.isalnum() or c in (' ', '-', '_')).strip()
+                safe_prof_name = "".join(c for c in section.professor_name if c.isalnum() or c in (' ', '-', '_')).strip()
+                filename = f"{safe_section_name}_{safe_prof_name}.xlsx"
+                zip_file.writestr(filename, excel_buffer.getvalue())
+        
+        # Prepare response
+        zip_buffer.seek(0)
+        response = HttpResponse(zip_buffer.getvalue(), content_type='application/zip')
+        safe_event_name = "".join(c for c in event.title if c.isalnum() or c in (' ', '-', '_')).strip()
+        response['Content-Disposition'] = f'attachment; filename="{safe_event_name}_Attendance_by_Section.zip"'
+        
+        return response
+        
+    except Exception as e:
+        messages.error(request, f'Error exporting attendance data: {str(e)}')
+        return redirect('events_dashboard')
+
+
+@login_required
+def backup_database(request):
+    """Download the SQLite database file as a backup."""
+    # Only superuser or staff can backup database
+    if not (request.user.is_superuser or request.user.is_staff):
+        messages.error(request, 'You do not have permission to backup the database.')
+        return redirect('portal')
+    
+    try:
+        from django.conf import settings
+        from datetime import datetime
+        import os
+        
+        # Get the database path
+        db_path = settings.DATABASES['default']['NAME']
+        
+        # Check if using SQLite
+        if 'sqlite' not in settings.DATABASES['default']['ENGINE']:
+            messages.error(request, 'Database backup is only available for SQLite databases.')
+            return redirect('portal')
+        
+        # Check if database file exists
+        if not os.path.exists(db_path):
+            messages.error(request, 'Database file not found.')
+            return redirect('portal')
+        
+        # Read the database file
+        with open(db_path, 'rb') as db_file:
+            db_content = db_file.read()
+        
+        # Create response with database file
+        response = HttpResponse(db_content, content_type='application/x-sqlite3')
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        response['Content-Disposition'] = f'attachment; filename="dlc_database_backup_{timestamp}.sqlite3"'
+        
+        messages.success(request, f'Database backup downloaded successfully!')
+        
+        return response
+        
+    except Exception as e:
+        messages.error(request, f'Error backing up database: {str(e)}')
+        return redirect('portal')
+
+
+@login_required
+def restore_database(request):
+    """Restore database from an uploaded SQLite file."""
+    # Only superuser or staff can restore database
+    if not (request.user.is_superuser or request.user.is_staff):
+        messages.error(request, 'You do not have permission to restore the database.')
+        return redirect('portal')
+    
+    # Device detection - block mobile and tablet devices
+    user_agent = parse(request.META.get('HTTP_USER_AGENT', ''))
+    if user_agent.is_mobile or user_agent.is_tablet:
+        return render(request, 'frontend/desktop_only.html', {
+            'device_type': 'mobile device' if user_agent.is_mobile else 'tablet'
+        })
+    
+    if request.method == 'POST':
+        try:
+            from django.conf import settings
+            from datetime import datetime
+            import os
+            import shutil
+            
+            # Get the uploaded file
+            uploaded_file = request.FILES.get('database_file')
+            
+            if not uploaded_file:
+                messages.error(request, 'No file uploaded.')
+                return render(request, 'frontend/restore_database.html')
+            
+            # Validate file extension
+            if not uploaded_file.name.endswith(('.sqlite3', '.db', '.sqlite')):
+                messages.error(request, 'Invalid file type. Please upload a SQLite database file (.sqlite3, .db, or .sqlite).')
+                return render(request, 'frontend/restore_database.html')
+            
+            # Get the database path
+            db_path = settings.DATABASES['default']['NAME']
+            
+            # Check if using SQLite
+            if 'sqlite' not in settings.DATABASES['default']['ENGINE']:
+                messages.error(request, 'Database restore is only available for SQLite databases.')
+                return render(request, 'frontend/restore_database.html')
+            
+            # Create a backup of the current database before restoring
+            backup_dir = os.path.join(settings.BASE_DIR, 'database_backups')
+            os.makedirs(backup_dir, exist_ok=True)
+            
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            backup_path = os.path.join(backup_dir, f'auto_backup_before_restore_{timestamp}.sqlite3')
+            
+            # Copy current database as backup
+            shutil.copy2(db_path, backup_path)
+            
+            # Write the uploaded file to the database location
+            with open(db_path, 'wb') as destination:
+                for chunk in uploaded_file.chunks():
+                    destination.write(chunk)
+            
+            messages.success(request, f'Database restored successfully! A backup of the previous database was saved.')
+            messages.info(request, f'Backup location: {backup_path}')
+            
+            # Redirect to login (user will need to log in again with restored credentials)
+            return redirect('login')
+            
+        except Exception as e:
+            messages.error(request, f'Error restoring database: {str(e)}')
+            return render(request, 'frontend/restore_database.html')
+    
+    # GET request - show the upload form
+    return render(request, 'frontend/restore_database.html')
 

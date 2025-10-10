@@ -1,3 +1,5 @@
+import random
+
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 
@@ -183,3 +185,87 @@ class Course(models.Model):
             'OM': 'Operations Management',
         }
         return dept_mapping.get(self.department, self.department or 'Unknown')
+
+
+class Event(models.Model):
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    start_date = models.DateField()
+    end_date = models.DateField()
+    start_time = models.TimeField(null=True, blank=True)
+    end_time = models.TimeField(null=True, blank=True)
+    image_url = models.URLField(blank=True, null=True)
+    # Optional preset secret numbers used to generate dynamic verification routes
+    # Three numbers for start attendance verification and three for end attendance verification
+    secret_start_a = models.IntegerField(null=True, blank=True)
+    secret_start_b = models.IntegerField(null=True, blank=True)
+    secret_start_c = models.IntegerField(null=True, blank=True)
+    secret_end_a = models.IntegerField(null=True, blank=True)
+    secret_end_b = models.IntegerField(null=True, blank=True)
+    secret_end_c = models.IntegerField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-start_date', 'start_time']
+
+    def __str__(self):
+        return f"{self.title} ({self.start_date} - {self.end_date})"
+
+    def _generate_triplet(self):
+        return tuple(random.randint(100000, 999999) for _ in range(3))
+
+    def save(self, *args, **kwargs):
+        # Only set secrets when creating new events or when any value is missing
+        if not self.pk:
+            if self.secret_start_a is None or self.secret_start_b is None or self.secret_start_c is None:
+                self.secret_start_a, self.secret_start_b, self.secret_start_c = self._generate_triplet()
+            if self.secret_end_a is None or self.secret_end_b is None or self.secret_end_c is None:
+                self.secret_end_a, self.secret_end_b, self.secret_end_c = self._generate_triplet()
+        else:
+            # For existing events, backfill any missing values without changing existing ones
+            if self.secret_start_a is None or self.secret_start_b is None or self.secret_start_c is None:
+                a, b, c = self._generate_triplet()
+                self.secret_start_a = self.secret_start_a or a
+                self.secret_start_b = self.secret_start_b or b
+                self.secret_start_c = self.secret_start_c or c
+            if self.secret_end_a is None or self.secret_end_b is None or self.secret_end_c is None:
+                a, b, c = self._generate_triplet()
+                self.secret_end_a = self.secret_end_a or a
+                self.secret_end_b = self.secret_end_b or b
+                self.secret_end_c = self.secret_end_c or c
+
+        super().save(*args, **kwargs)
+
+
+class EventSection(models.Model):
+    """Sections/classes associated with an event (e.g., ACC201-001, FIN305-002)"""
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='sections')
+    professor_name = models.CharField(max_length=200)
+    section_code = models.CharField(max_length=50, help_text="e.g., ACC201-001 or Section 1")
+    
+    class Meta:
+        ordering = ['section_code']
+        unique_together = ('event', 'section_code')
+    
+    def __str__(self):
+        return f"{self.section_code} - {self.professor_name}"
+
+
+class Attendance(models.Model):
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='attendances')
+    student_id = models.CharField(max_length=50)
+    student_name = models.CharField(max_length=200)
+    email = models.EmailField(blank=True, null=True)
+    code = models.CharField(max_length=50, blank=True, null=True)
+    present_start = models.BooleanField(default=False)
+    present_end = models.BooleanField(default=False)
+    recorded_at = models.DateTimeField(auto_now_add=True)
+    # Student can select multiple sections they belong to
+    sections = models.ManyToManyField(EventSection, blank=True, related_name='attendees')
+
+    class Meta:
+        # Ensure each student can register only once per event and each code is unique per event
+        unique_together = (('event', 'student_id'), ('event', 'code'))
+
+    def __str__(self):
+        return f"{self.student_name} - {self.event.title}"

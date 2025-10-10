@@ -75,6 +75,13 @@
 					</li>
 					
 					<li>
+						<a href="{% url 'events_dashboard' %}">
+							<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M19 4h-2V2h-2v2H9V2H7v2H5c-1.103 0-2 .897-2 2v14c0 1.103.897 2 2 2h14c1.103 0 2-.897 2-2V6c0-1.103-.897-2-2-2zm.002 16H5V8h14l.002 12z"/><path d="M11 17h2v-2h-2v2zm0-4h2v-2h-2v2zm4 4h2v-2h-2v2zm0-4h2v-2h-2v2zm-8 4h2v-2H7v2zm0-4h2v-2H7v2z"/></svg>
+							Events Dashboard
+						</a>
+					</li>
+					
+					<li>
 						<a href="{% url 'refresh_courses' %}">
 							<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M12 2C6.486 2 2 6.486 2 12s4.486 10 10 10c5.514 0 10-4.486 10-10S17.514 2 12 2zm0 18c-4.411 0-8-3.589-8-8s3.589-8 8-8 8 3.589 8 8-3.589 8-8 8z"/><path d="M13 7h-2v5.414l3.293 3.293 1.414-1.414L13 11.586z"/></svg>
 							Refresh Courses
@@ -89,6 +96,26 @@
 					</li>
 				</ul>
 			</section>
+			
+			{% if user.is_superuser or user.is_staff %}
+			<section class="tools">
+				<h3>Database</h3>
+				<ul>
+					<li>
+						<a href="{% url 'backup_database' %}">
+							<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M18.948 11.112C18.511 7.67 15.563 5 12.004 5c-2.756 0-5.15 1.611-6.243 4.15-2.148.642-3.757 2.67-3.757 4.85 0 2.757 2.243 5 5 5h1v-2h-1c-1.654 0-3-1.346-3-3 0-1.404 1.199-2.756 2.673-3.015l.581-.102.192-.558C8.153 8.273 9.898 7 12.004 7c2.757 0 5 2.243 5 5v1h1.5c1.378 0 2.5 1.122 2.5 2.5S19.882 18 18.504 18H17v2h1.504c2.481 0 4.5-2.019 4.5-4.5s-2.019-4.5-4.5-4.5h-.556v-.888zM11 13v-3h2v3h3l-4 5-4-5h3z"/></svg>
+							Download Database
+						</a>
+					</li>
+					<li>
+						<a href="{% url 'restore_database' %}">
+							<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M18.948 11.112C18.511 7.67 15.563 5 12.004 5c-2.756 0-5.15 1.611-6.243 4.15-2.148.642-3.757 2.67-3.757 4.85 0 2.757 2.243 5 5 5h1v-2h-1c-1.654 0-3-1.346-3-3 0-1.404 1.199-2.756 2.673-3.015l.581-.102.192-.558C8.153 8.273 9.898 7 12.004 7c2.757 0 5 2.243 5 5v1h1.5c1.378 0 2.5 1.122 2.5 2.5S19.882 18 18.504 18H17v2h1.504c2.481 0 4.5-2.019 4.5-4.5s-2.019-4.5-4.5-4.5h-.556v-.888zM13 14v3h-2v-3H8l4-5 4 5h-3z"/></svg>
+							Restore Database
+						</a>
+					</li>
+				</ul>
+			</section>
+			{% endif %}
 			
 			
 		</nav>
@@ -154,9 +181,105 @@
 			</section>
 			<section> 
 				{% block portal_content %}
+				<div style="margin-bottom:20px;">
+					{% if user.is_authenticated %}
+						{% if user.is_staff or user.is_member %}
+							<a href="{% url 'create_event' %}" class="btn btn-primary">Create an Event</a>
+						{% endif %}
+					{% endif %}
+				</div>
+
+				{% if events %}
+					<h3>Your Events</h3>
+					<ul class="list-group mb-3">
+						{% for ev in events %}
+						<li class="list-group-item d-flex justify-content-between align-items-center">
+							<div>
+								<strong>{{ ev.title }}</strong><br>
+								<small class="text-muted">{{ ev.start_date }}{% if ev.end_date and ev.end_date != ev.start_date %} - {{ ev.end_date }}{% endif %}</small>
+							</div>
+							<div>
+								<a class="btn btn-sm btn-outline-secondary" href="{% url 'event_detail' ev.pk %}">View</a>
+								{% if user.is_authenticated %}
+									{% if user.is_staff or user.is_member %}
+									<form method="post" action="{% url 'delete_event' ev.pk %}" style="display:inline-block; margin-left:10px; position:relative;" class="event-delete-form" data-title="{{ ev.title|escape }}">
+											{% csrf_token %}
+											<button type="button" class="btn btn-sm btn-danger btn-delete-trigger">Delete</button>
+
+											<div class="inline-confirm" style="display:none;">
+												<div class="inline-confirm-inner">
+													<div class="inline-confirm-title">Delete "<span class="confirm-title"></span>"?</div>
+													<div class="inline-confirm-actions">
+														<button type="button" class="btn btn-sm btn-secondary btn-cancel">Cancel</button>
+														<button type="submit" class="btn btn-sm btn-danger btn-confirm" style="margin-left:6px;">Confirm</button>
+													</div>
+												</div>
+											</div>
+										</form>
+									{% endif %}
+								{% endif %}
+							</div>
+						</li>
+						{% endfor %}
+					</ul>
+				{% endif %}
 				{% endblock %}
 			</section>
-		</div>
+						<script>
+						document.addEventListener('DOMContentLoaded', function() {
+							document.querySelectorAll('.event-delete-form').forEach(function(form) {
+									var trigger = form.querySelector('.btn-delete-trigger');
+									var inline = form.querySelector('.inline-confirm');
+									var titleEl = inline ? inline.querySelector('.confirm-title') : null;
+									if (titleEl) titleEl.textContent = form.getAttribute('data-title') || 'this event';
+
+									if (trigger && inline) {
+										trigger.addEventListener('click', function(e) {
+											// create backdrop
+											var backdrop = document.createElement('div');
+											backdrop.className = 'confirm-backdrop';
+											document.body.appendChild(backdrop);
+
+											// create modal container
+											var modal = document.createElement('div');
+											modal.className = 'confirm-modal';
+											modal.innerHTML = inline.querySelector('.inline-confirm-inner').outerHTML;
+											document.body.appendChild(modal);
+
+											// set title
+											var mt = modal.querySelector('.confirm-title');
+											if (mt) mt.textContent = form.getAttribute('data-title') || 'this event';
+
+											// cancel handler
+											modal.querySelector('.btn-cancel').addEventListener('click', function() {
+												modal.remove();
+												backdrop.remove();
+											});
+
+											// when confirm (submit) clicked, submit the original form
+											modal.querySelector('.btn-confirm').addEventListener('click', function() {
+												// append a hidden input to indicate JS-confirmed
+												var inp = document.createElement('input');
+												inp.type = 'hidden'; inp.name = 'confirmed'; inp.value = '1';
+												form.appendChild(inp);
+												form.submit();
+											});
+
+											// clicking backdrop cancels
+											backdrop.addEventListener('click', function() {
+												modal.remove();
+												backdrop.remove();
+											});
+										});
+									}
+								});
+						});
+
+	// Modal/backdrop styles (inserted via JS so no template head edits needed)
+	var style = document.createElement('style');
+	style.textContent = '\n.confirm-backdrop { position:fixed; left:0; top:0; right:0; bottom:0; background:rgba(0,0,0,0.45); z-index:1000; }\n.confirm-modal { position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); background:white; padding:18px; border-radius:8px; box-shadow:0 8px 32px rgba(0,0,0,0.35); z-index:1001; width:90%; max-width:480px; }\n.confirm-modal .inline-confirm-title { font-size:1.05em; margin-bottom:12px; }\n.confirm-modal .inline-confirm-actions { text-align:right; }\n';
+	document.head.appendChild(style);
+						</script>
 	</main>
 </div>
 {% endblock %}

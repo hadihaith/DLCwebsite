@@ -15,6 +15,16 @@ urlpatterns = [
     path('contact/thread/<int:thread_id>/delete/', views.delete_thread, name='delete_thread'),
     path('contact/reply/<int:reply_id>/delete/', views.delete_reply, name='delete_reply'),
     path('portal', views.portal, name='portal'),
+    path('events/', views.events_list, name='events'),
+    path('events/<int:pk>/', views.event_detail, name='event_detail'),
+    path('events/create/', views.create_event, name='create_event'),
+    path('image-proxy/', views.image_proxy, name='image_proxy'),
+    path('events/delete/<int:event_id>/', views.delete_event, name='delete_event'),
+    # dynamic start/end verification routes using three preset secret numbers each
+    path('events/verify/start/<int:a>/<int:b>/<int:c>/', views.verify_start, name='verify_start'),
+    path('events/verify/end/<int:a>/<int:b>/<int:c>/', views.verify_end, name='verify_end'),
+    path('events/<int:pk>/attendance-qr/', views.attendance_qr, name='attendance_qr'),
+    path('events/<int:pk>/manage-sections/', views.manage_event_sections, name='manage_event_sections'),
     path('register', views.register, name='register'),
     path("login", views.login_view, name="login"),
     path("logout", views.logout_view, name="logout"),
@@ -29,6 +39,11 @@ urlpatterns = [
     path('portal/members/delete/<int:user_id>/', views.delete_member, name='delete_member'),
     path('portal/thread-settings', views.thread_settings, name='thread_settings'),
     path('portal/refresh-courses', views.refresh_courses, name='refresh_courses'),
+    path('portal/events-dashboard', views.events_dashboard, name='events_dashboard'),
+    path('portal/events/<int:pk>/attendance-data/', views.event_attendance_data, name='event_attendance_data'),
+    path('portal/events/<int:pk>/export-sections/', views.export_event_sections, name='export_event_sections'),
+    path('portal/database/backup/', views.backup_database, name='backup_database'),
+    path('portal/database/restore/', views.restore_database, name='restore_database'),
     # Test route for 404 page
     path('test-404/', views.custom_404_view, name='test_404'),
 ]

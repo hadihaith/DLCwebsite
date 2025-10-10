@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Button Test</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .qr-panel {
+            margin-top: 20px;
+            padding: 20px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            background-color: #f8f9fa;
+        }
+        .qr-panel h5 {
+            color: #495057;
+            margin-bottom: 15px;
+        }
+        .qr-panel img {
+            max-width: 300px;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #e7f3ff;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🧪 QR Toggle Test</h1>
+        <p class="text-muted">This standalone test verifies the button toggle logic works correctly.</p>
+
+        <div class="btn-group mb-4" role="group" aria-label="Choose attendance QR">
+            <button type="button" class="btn btn-outline-primary qr-toggle" data-qr-target="start">Show Start QR</button>
+            <button type="button" class="btn btn-outline-success qr-toggle" data-qr-target="end">Show End QR</button>
+        </div>
+
+        <div id="qr-start" class="qr-panel" style="display: none;">
+            <h5>📍 Start Attendance QR</h5>
+            <img src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=http%3A%2F%2Flocalhost%3A8000%2Fevents%2Fverify%2Fstart%2F123456%2F789012%2F345678%2F" 
+                 alt="Start QR Code"
+                 class="img-fluid">
+            <p class="mt-2"><strong>Target:</strong> START panel</p>
+        </div>
+
+        <div id="qr-end" class="qr-panel" style="display: none;">
+            <h5>✅ End Attendance QR</h5>
+            <img src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=http%3A%2F%2Flocalhost%3A8000%2Fevents%2Fverify%2Fend%2F234567%2F890123%2F456789%2F" 
+                 alt="End QR Code"
+                 class="img-fluid">
+            <p class="mt-2"><strong>Target:</strong> END panel</p>
+        </div>
+
+        <div class="status">
+            <strong>Debug Log:</strong>
+            <div id="debug-log"></div>
+        </div>
+    </div>
+
+    <script>
+    (function() {
+        'use strict';
+        
+        const debugLog = document.getElementById('debug-log');
+        
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            debugLog.innerHTML += `<div>[${timestamp}] ${message}</div>`;
+            console.log(message);
+        }
+        
+        // Wait for DOM to be ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initQRToggle);
+        } else {
+            initQRToggle();
+        }
+        
+        function initQRToggle() {
+            const buttons = document.querySelectorAll('.qr-toggle');
+            const panels = document.querySelectorAll('.qr-panel');
+            
+            log(`✅ Initialized. Found ${buttons.length} buttons and ${panels.length} panels`);
+
+            function hideAll() {
+                panels.forEach(function(panel) {
+                    panel.style.display = 'none';
+                });
+                buttons.forEach(function(btn) {
+                    btn.classList.remove('active');
+                });
+                log('🔄 Hidden all panels');
+            }
+
+            buttons.forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    const target = this.getAttribute('data-qr-target');
+                    log(`🖱️ Button clicked: "${this.textContent.trim()}" (target: ${target})`);
+                    
+                    if (!target) {
+                        log('❌ No target attribute found!');
+                        return;
+                    }
+                    
+                    hideAll();
+                    this.classList.add('active');
+                    
+                    const panel = document.getElementById('qr-' + target);
+                    if (panel) {
+                        panel.style.display = 'block';
+                        log(`✅ Showing panel: qr-${target}`);
+                    } else {
+                        log(`❌ Panel not found: qr-${target}`);
+                    }
+                });
+            });
+
+            // Auto-show first button if only one exists
+            if (buttons.length === 1) {
+                log('Auto-clicking single button');
+                buttons[0].click();
+            }
+            
+            log('✅ Event listeners attached');
+        }
+    })();
+    </script>
+</body>
+</html>

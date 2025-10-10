@@ -1,0 +1,31 @@
+{% extends 'frontend/layout.html' %}
+{% load static %}
+
+{% block content %}
+<section class="mt-5 pt-5">
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-md-6 text-center">
+        <div class="card p-4">
+          <h3>Attendance Code</h3>
+          {% if existing %}
+            <p class="text-muted">This student was already registered for this event. Here is the existing code:</p>
+          {% else %}
+            <p class="text-muted">Registration successful. Use this code for the event:</p>
+          {% endif %}
+          
+          <div class="alert alert-warning mb-3" style="background: linear-gradient(135deg, #fff3cd, #ffeeba); border: 2px solid #ffc107; border-radius: 8px; padding: 15px;">
+            <i class="fas fa-camera" style="font-size: 24px; margin-bottom: 10px;"></i>
+            <div style="font-weight: 600; color: #856404; margin-bottom: 5px;">📸 IMPORTANT: Screenshot This Code!</div>
+            <p style="margin: 0; color: #856404; font-size: 14px;">Save this code as a screenshot. You will need it to mark your attendance at the event.</p>
+          </div>
+          
+          <div style="font-size:2.2rem; font-weight:700; letter-spacing:4px; margin:18px 0; background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);">{{ code }}</div>
+          <p><strong>Student:</strong> {{ student_name }} ({{ student_id }})</p>
+          <a href="{% url 'event_detail' event.pk %}" class="btn btn-secondary">Back to event</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,107 @@
+{% extends 'frontend/layout.html' %}
+{% load static %}
+
+{% block content %}
+<section class="mt-5 pt-5">
+  <div class="container">
+    <h1 class="mb-4">Events</h1>
+    <div class="row">
+      {% if page_obj and page_obj.paginator.count > 0 %}
+        {% for event in page_obj %}
+        <div class="col-md-4 mb-4">
+          <div class="card h-100">
+            {% if event.image_url %}
+            <div class="evt-image ratio-16-9">
+              {% load image_utils %}
+              <img src="{{ event.image_url|normalize_image_url }}" alt="{{ event.title }}" loading="lazy" />
+            </div>
+            {% endif %}
+            <div class="card-body">
+              <h5 class="card-title">{{ event.title }}</h5>
+              <p class="card-text">{{ event.start_date }}{% if event.end_date and event.end_date != event.start_date %} - {{ event.end_date }}{% endif %}</p>
+              <p class="card-text">{{ event.description|truncatechars:120 }}</p>
+              <a href="{% url 'event_detail' event.pk %}" class="btn btn-primary">View details</a>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+        </div>
+
+        <nav aria-label="Events pagination">
+          <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+              <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}" aria-label="Previous">&laquo; Prev</a>
+              </li>
+            {% else %}
+              <li class="page-item disabled"><span class="page-link">&laquo; Prev</span></li>
+            {% endif %}
+
+            {% for num in page_obj.paginator.page_range %}
+              {% if page_obj.number == num %}
+                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+              {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+              {% endif %}
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+              <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}" aria-label="Next">Next &raquo;</a>
+              </li>
+            {% else %}
+              <li class="page-item disabled"><span class="page-link">Next &raquo;</span></li>
+            {% endif %}
+          </ul>
+        </nav>
+      {% else %}
+        <div class="col-12"><p>No events available.</p></div>
+      {% endif %}
+    </div>
+  </div>
+</section>
+
+<style>
+/* Event image responsive containers and aspect ratio helpers */
+.evt-image{position:relative;width:100%;overflow:hidden;background:#f6f6f6;display:block}
+.evt-image img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;border-radius:0;display:block}
+.evt-image.ratio-16-9{aspect-ratio:16/9}
+.evt-image.ratio-4-3{aspect-ratio:4/3}
+.evt-image.ratio-1-1{aspect-ratio:1/1}
+.evt-image.ratio-9-16{aspect-ratio:9/16}
+/* Fallback for older browsers: maintain approximate space using padding-top */
+.evt-image.ratio-16-9{min-height:120px}
+.evt-image.ratio-9-16{min-height:240px}
+
+/* Mobile responsiveness */
+@media (max-width: 767px) {
+  .col-md-4 { flex: 0 0 100%; max-width: 100%; }
+  .evt-image { min-height: 140px }
+  .evt-image.ratio-9-16{min-height:220px}
+  .card { margin-bottom: 12px }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  // Auto-detect image aspect ratio and set appropriate ratio class
+  document.querySelectorAll('.evt-image img').forEach(function(img){
+    function setRatio(){
+      var w = img.naturalWidth || img.width;
+      var h = img.naturalHeight || img.height;
+      if(!w || !h) return;
+      var ar = w/h;
+      var parent = img.closest('.evt-image');
+      if(!parent) return;
+      parent.classList.remove('ratio-16-9','ratio-4-3','ratio-1-1','ratio-9-16');
+      if(ar >= 1.6) parent.classList.add('ratio-16-9');
+      else if(ar >= 1.25) parent.classList.add('ratio-4-3');
+      else if(ar >= 0.85) parent.classList.add('ratio-1-1');
+      else parent.classList.add('ratio-9-16');
+    }
+    if(img.complete){ setRatio(); } else { img.addEventListener('load', setRatio); }
+  });
+});
+</script>
+
+{% endblock %}

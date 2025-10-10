@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Code Test - DLC Attendance</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #007bff;
+            padding-bottom: 10px;
+        }
+        .qr-section {
+            display: inline-block;
+            margin: 20px;
+            padding: 20px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            text-align: center;
+            background: #fafafa;
+        }
+        .qr-section h3 {
+            margin-top: 0;
+            color: #007bff;
+        }
+        .qr-section.end h3 {
+            color: #28a745;
+        }
+        .qr-code {
+            margin: 15px 0;
+            border: 1px solid #ccc;
+            display: inline-block;
+        }
+        .secret-numbers {
+            background: #e9ecef;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        .url-display {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            word-break: break-all;
+            font-size: 12px;
+            color: #666;
+        }
+        .instructions {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+        .instructions h3 {
+            margin-top: 0;
+            color: #856404;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎓 DLC Attendance QR Code Test</h1>
+        
+        <div class="instructions">
+            <h3>How This Works:</h3>
+            <ol>
+                <li>Each event has 6 secret numbers (3 for start, 3 for end attendance)</li>
+                <li>These numbers are randomly generated when the event is created</li>
+                <li>The QR codes encode URLs containing these secret numbers</li>
+                <li>Members can display these QR codes for attendees to scan</li>
+                <li>After scanning, attendees enter their 6-digit attendance code</li>
+                <li>The system verifies the code and marks their attendance</li>
+            </ol>
+        </div>
+
+        <h2>Example QR Codes:</h2>
+        
+        <div class="qr-section">
+            <h3>🟦 Start Attendance</h3>
+            <div class="secret-numbers">
+                <strong>Secret Numbers:</strong><br>
+                123456 / 789012 / 345678
+            </div>
+            <div class="qr-code">
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=http%3A%2F%2Flocalhost%3A8000%2Fevents%2Fverify%2Fstart%2F123456%2F789012%2F345678%2F" 
+                     alt="Start QR Code"
+                     width="300"
+                     height="300">
+            </div>
+            <div class="url-display">
+                <strong>URL:</strong> http://localhost:8000/events/verify/start/123456/789012/345678/
+            </div>
+        </div>
+
+        <div class="qr-section end">
+            <h3>🟩 End Attendance</h3>
+            <div class="secret-numbers">
+                <strong>Secret Numbers:</strong><br>
+                234567 / 890123 / 456789
+            </div>
+            <div class="qr-code">
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=http%3A%2F%2Flocalhost%3A8000%2Fevents%2Fverify%2Fend%2F234567%2F890123%2F456789%2F" 
+                     alt="End QR Code"
+                     width="300"
+                     height="300">
+            </div>
+            <div class="url-display">
+                <strong>URL:</strong> http://localhost:8000/events/verify/end/234567/890123/456789/
+            </div>
+        </div>
+
+        <div class="instructions" style="background: #d1ecf1; border-color: #bee5eb;">
+            <h3>Testing Steps:</h3>
+            <ol>
+                <li>Create a new event in the Django admin or through the portal</li>
+                <li>The event will automatically get random secret numbers</li>
+                <li>Go to the event detail page as a member</li>
+                <li>Click "Get attendance QR code"</li>
+                <li>Choose whether to show the start or end QR</li>
+                <li>Scan with your phone or click the URL directly</li>
+                <li>Enter an attendance code from the event</li>
+                <li>Verify that the correct boolean (present_start or present_end) is set</li>
+            </ol>
+        </div>
+
+        <div style="margin-top: 30px; padding: 15px; background: #e7f3ff; border-radius: 4px;">
+            <h3>🔧 Technical Details:</h3>
+            <ul>
+                <li><strong>QR API:</strong> Google Charts API (no libraries needed)</li>
+                <li><strong>URL Pattern:</strong> /events/verify/{start|end}/{num1}/{num2}/{num3}/</li>
+                <li><strong>Secret Generation:</strong> 6-digit random numbers (100000-999999)</li>
+                <li><strong>Storage:</strong> secret_start_a/b/c and secret_end_a/b/c fields on Event model</li>
+                <li><strong>Security:</strong> Member-only access to QR generation page</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>

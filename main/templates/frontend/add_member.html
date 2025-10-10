@@ -51,6 +51,87 @@
     {% endif %}
 
     <div class="form-container">
+        <!-- Bulk Creation Section -->
+        <div class="bulk-section">
+            <div class="section-header">
+                <h3>Bulk Member Creation</h3>
+                <p>Create multiple active members at once using the format: <code>username,password,First_name Last_name</code></p>
+            </div>
+            
+            <form method="post" class="bulk-form">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label for="bulk_data">Member Data (one per line)</label>
+                    <textarea 
+                        id="bulk_data" 
+                        name="bulk_data" 
+                        rows="10"
+                        placeholder="john.doe,password123,John Doe"
+                        {% if not can_add_member %}disabled{% endif %}
+                    ></textarea>
+                    <small class="form-help">
+                        <strong>Format:</strong> username,password,First_name Last_name (one member per line)<br>
+                        <strong>Example:</strong> john.doe,password123,John Doe<br>
+                        All created users will be active members with MEMBER role.
+                    </small>
+                </div>
+                
+                <div class="form-actions">
+                    {% if can_add_member %}
+                    <button type="submit" class="btn-submit">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M17 11a1 1 0 0 1 0 2h-4v4a1 1 0 0 1-2 0v-4H7a1 1 0 0 1 0-2h4V7a1 1 0 0 1 2 0v4h4z"/>
+                        </svg>
+                        Create Members in Bulk
+                    </button>
+                    {% else %}
+                    <button type="button" class="btn-disabled" disabled>
+                        Access Restricted
+                    </button>
+                    {% endif %}
+                </div>
+            </form>
+            
+            {% if bulk_results %}
+            <div class="bulk-results">
+                {% if bulk_results.successes %}
+                <div class="results-success">
+                    <h4>✓ Successfully Created ({{ bulk_results.success_count }})</h4>
+                    <ul>
+                        {% for success in bulk_results.successes %}
+                        <li>Line {{ success.line }}: <strong>{{ success.name }}</strong> ({{ success.username }})</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+                
+                {% if bulk_results.errors %}
+                <div class="results-errors">
+                    <h4>✗ Failed ({{ bulk_results.error_count }})</h4>
+                    <ul>
+                        {% for error in bulk_results.errors %}
+                        <li>
+                            <strong>Line {{ error.line }}:</strong> {{ error.data }}<br>
+                            <span class="error-detail">{{ error.error }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+        
+        <div class="divider">
+            <span>OR</span>
+        </div>
+        
+        <!-- Single Member Creation Section -->
+        <div class="section-header">
+            <h3>Single Member Creation</h3>
+            <p>Add one member with custom settings</p>
+        </div>
+        
         <form method="post" class="add-member-form">
             {% csrf_token %}
             
@@ -174,7 +255,7 @@
 
 <style>
 .add-member-container {
-    max-width: 800px;
+    max-width: 900px;
     margin: 0 auto;
     padding: 20px;
 }
@@ -193,6 +274,154 @@
 .member-header p {
     color: #7f8c8d;
     font-size: 16px;
+}
+
+.bulk-section {
+    margin-bottom: 30px;
+    padding: 25px;
+    background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
+    border: 2px solid #3498db;
+    border-radius: 12px;
+}
+
+.section-header {
+    margin-bottom: 20px;
+}
+
+.section-header h3 {
+    color: #2c3e50;
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+
+.section-header p {
+    color: #546e7a;
+    font-size: 14px;
+    margin: 0;
+}
+
+.section-header code {
+    background-color: #263238;
+    color: #4fc3f7;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+.bulk-form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.bulk-form textarea {
+    padding: 12px;
+    border: 2px solid #90caf9;
+    border-radius: 6px;
+    font-size: 14px;
+    font-family: 'Courier New', monospace;
+    transition: all 0.2s;
+    background-color: white;
+    resize: vertical;
+}
+
+.bulk-form textarea:focus {
+    outline: none;
+    border-color: #2196f3;
+    box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+}
+
+.bulk-form textarea:disabled {
+    background-color: #f8f9fa;
+    color: #6c757d;
+    cursor: not-allowed;
+}
+
+.bulk-results {
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.results-success, .results-errors {
+    padding: 15px;
+    border-radius: 8px;
+}
+
+.results-success {
+    background: linear-gradient(135deg, #d4edda, #c3e6cb);
+    border: 2px solid #28a745;
+}
+
+.results-success h4 {
+    color: #155724;
+    margin: 0 0 10px 0;
+    font-size: 16px;
+}
+
+.results-success ul {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.results-success li {
+    color: #155724;
+    margin-bottom: 5px;
+}
+
+.results-errors {
+    background: linear-gradient(135deg, #f8d7da, #f5c6cb);
+    border: 2px solid #dc3545;
+}
+
+.results-errors h4 {
+    color: #721c24;
+    margin: 0 0 10px 0;
+    font-size: 16px;
+}
+
+.results-errors ul {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.results-errors li {
+    color: #721c24;
+    margin-bottom: 10px;
+}
+
+.error-detail {
+    display: block;
+    font-size: 13px;
+    color: #c82333;
+    margin-top: 3px;
+    font-style: italic;
+}
+
+.divider {
+    position: relative;
+    text-align: center;
+    margin: 30px 0;
+}
+
+.divider::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(to right, transparent, #dee2e6, transparent);
+}
+
+.divider span {
+    position: relative;
+    background: white;
+    padding: 0 15px;
+    color: #6c757d;
+    font-weight: 600;
+    font-size: 14px;
 }
 
 .permission-warning {

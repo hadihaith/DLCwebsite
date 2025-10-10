@@ -1,0 +1,8 @@
+{% extends 'frontend/layout.html' %}
+
+{% block content %}
+<div class="container mt-4">
+  <h2>Event not found</h2>
+  <p>No event matches the {% if mode %}{{ mode }} {% endif %}attendance code route provided.</p>
+</div>
+{% endblock %}

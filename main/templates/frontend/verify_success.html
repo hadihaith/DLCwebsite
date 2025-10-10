@@ -1,0 +1,17 @@
+{% extends 'frontend/layout.html' %}
+
+{% block content %}
+{% with current_mode=mode|default:'start' %}
+<div class="container mt-4">
+  <h2 class="mb-3">
+    {% if current_mode == 'end' %}
+      End attendance confirmed
+    {% else %}
+      Start attendance confirmed
+    {% endif %}
+  </h2>
+  <p>Thanks {{ attendance.student_name }} — your {{ current_mode }} attendance has been recorded.</p>
+  <a href="/" class="btn btn-outline-primary mt-2">Back home</a>
+</div>
+{% endwith %}
+{% endblock %}

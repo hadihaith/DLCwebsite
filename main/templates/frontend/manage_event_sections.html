@@ -1,0 +1,275 @@
+{% extends 'frontend/portal.html' %}
+
+{% load static %}
+
+{% block portal_content %}
+<style>
+    .sections-manager {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+    
+    .manager-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+        padding-bottom: 15px;
+        border-bottom: 2px solid #e9ecef;
+    }
+    
+    .manager-header h2 {
+        color: #2c3e50;
+        margin: 0;
+    }
+    
+    .back-link {
+        color: #4a2e5f;
+        text-decoration: none;
+        font-weight: 500;
+    }
+    
+    .back-link:hover {
+        text-decoration: underline;
+    }
+    
+    .add-section-form {
+        background: white;
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        padding: 25px;
+        margin-bottom: 30px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    
+    .add-section-form h3 {
+        margin-top: 0;
+        color: #4a2e5f;
+        font-size: 20px;
+    }
+    
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr auto;
+        gap: 15px;
+        align-items: end;
+    }
+    
+    .form-group {
+        margin-bottom: 0;
+    }
+    
+    .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: 600;
+        color: #2c3e50;
+        font-size: 14px;
+    }
+    
+    .form-group input {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+    
+    .form-group input:focus {
+        outline: none;
+        border-color: #4a2e5f;
+        box-shadow: 0 0 0 3px rgba(74, 46, 95, 0.1);
+    }
+    
+    .btn {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 4px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    
+    .btn-primary {
+        background: #4a2e5f;
+        color: white;
+    }
+    
+    .btn-primary:hover {
+        background: #3a1e4f;
+    }
+    
+    .btn-danger {
+        background: #dc3545;
+        color: white;
+        padding: 6px 12px;
+        font-size: 13px;
+    }
+    
+    .btn-danger:hover {
+        background: #c82333;
+    }
+    
+    .sections-list {
+        background: white;
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    
+    .sections-list h3 {
+        margin: 0;
+        padding: 20px 25px;
+        background: #f8f9fa;
+        border-bottom: 1px solid #e9ecef;
+        color: #2c3e50;
+        font-size: 18px;
+    }
+    
+    .section-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 15px 25px;
+        border-bottom: 1px solid #e9ecef;
+        transition: background 0.2s;
+    }
+    
+    .section-item:last-child {
+        border-bottom: none;
+    }
+    
+    .section-item:hover {
+        background: #f8f9fa;
+    }
+    
+    .section-info {
+        flex: 1;
+    }
+    
+    .section-code {
+        font-weight: 600;
+        color: #4a2e5f;
+        font-size: 16px;
+        margin-bottom: 4px;
+    }
+    
+    .professor-name {
+        color: #6c757d;
+        font-size: 14px;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: #6c757d;
+    }
+    
+    .empty-state i {
+        font-size: 48px;
+        margin-bottom: 15px;
+        opacity: 0.3;
+    }
+    
+    .help-text {
+        background: #e7f3ff;
+        border-left: 4px solid #1976d2;
+        padding: 15px 20px;
+        margin-bottom: 25px;
+        border-radius: 4px;
+        font-size: 14px;
+        color: #0d47a1;
+    }
+    
+    .help-text strong {
+        display: block;
+        margin-bottom: 5px;
+    }
+</style>
+
+<div class="sections-manager">
+    <div class="manager-header">
+        <div>
+            <h2>Manage Sections & Professors</h2>
+            <p style="margin: 5px 0 0 0; color: #6c757d;">{{ event.title }}</p>
+        </div>
+        <a href="{% url 'events_dashboard' %}" class="back-link">
+            <i class="fas fa-arrow-left"></i> Back to Dashboard
+        </a>
+    </div>
+
+    <div class="help-text">
+        <strong>💡 What are sections?</strong>
+        Add the professors and section codes related to this event. Students will be able to select which section(s) they belong to when registering for attendance.
+    </div>
+
+    <!-- Add Section Form -->
+    <div class="add-section-form">
+        <h3><i class="fas fa-plus-circle"></i> Add New Section</h3>
+        <form method="POST">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="add">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="professor_name">Professor Name</label>
+                    <input 
+                        type="text" 
+                        id="professor_name" 
+                        name="professor_name" 
+                        placeholder="e.g., Dr. Ahmed Al-Kandari"
+                        required
+                    >
+                </div>
+                <div class="form-group">
+                    <label for="section_code">Section Code</label>
+                    <input 
+                        type="text" 
+                        id="section_code" 
+                        name="section_code" 
+                        placeholder="e.g., ACC201-001 or Section 1"
+                        required
+                    >
+                </div>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> Add Section
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Sections List -->
+    <div class="sections-list">
+        <h3><i class="fas fa-list"></i> Current Sections ({{ sections.count }})</h3>
+        
+        {% if sections %}
+            {% for section in sections %}
+            <div class="section-item">
+                <div class="section-info">
+                    <div class="section-code">{{ section.section_code }}</div>
+                    <div class="professor-name">
+                        <i class="fas fa-chalkboard-teacher"></i> {{ section.professor_name }}
+                    </div>
+                </div>
+                <form method="POST" style="margin: 0;" onsubmit="return confirm('Delete this section? This cannot be undone.');">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="delete">
+                    <input type="hidden" name="section_id" value="{{ section.id }}">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-trash"></i> Delete
+                    </button>
+                </form>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty-state">
+                <i class="fas fa-clipboard-list"></i>
+                <h4>No Sections Added Yet</h4>
+                <p>Add professors and sections above to allow students to select them during registration.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
