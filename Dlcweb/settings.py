@@ -164,8 +164,9 @@ AUTH_USER_MODEL = 'main.User'
 
 # Security settings for production
 if not DEBUG:
-    # HTTPS and security settings for production domain
-    SECURE_SSL_REDIRECT = True
+    # Railway handles SSL at the proxy level, so we don't redirect in Django
+    # This prevents redirect loops
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     SECURE_BROWSER_XSS_FILTER = True
