@@ -1,0 +1,113 @@
+{% extends 'frontend/layout.html' %}
+{% load static %}
+
+{% block title %}Exchange Nominations Dashboard{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top: 140px; padding-bottom: 60px;">
+    <div class="row mb-4 align-items-center">
+        <div class="col">
+            <h1 class="fw-bold" style="color:#4a2e5f;">Incoming Exchange Nominations</h1>
+            <p class="text-muted mb-0">Track nominations submitted via the public form and archive them once processed.</p>
+        </div>
+        <div class="col-auto">
+            <div class="btn-group" role="group" aria-label="Nomination filters">
+                <a class="btn {% if not show_archived %}btn-primary{% else %}btn-outline-primary{% endif %}" href="{% url 'exchange_officer_dashboard' %}">
+                    Active <span class="badge bg-light text-primary ms-1">{{ stats.active }}</span>
+                </a>
+                <a class="btn {% if show_archived %}btn-primary{% else %}btn-outline-primary{% endif %}" href="{% url 'exchange_officer_dashboard' %}?show=archived">
+                    Archived <span class="badge bg-light text-primary ms-1">{{ stats.archived }}</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    {% if messages %}
+    <div class="row">
+        <div class="col">
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="row">
+        <div class="col">
+            {% if nominations %}
+            <div class="table-responsive shadow-sm rounded" style="background:#fff;">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th scope="col">Student</th>
+                            <th scope="col">Institution</th>
+                            <th scope="col">Coordinator</th>
+                            <th scope="col">Semester / Year</th>
+                            <th scope="col">Credits</th>
+                            <th scope="col">Submitted</th>
+                            <th scope="col" class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for nomination in nominations %}
+                        <tr class="{% if nomination.is_archived %}table-secondary{% endif %}">
+                            <td>
+                                <div class="fw-semibold">{{ nomination.full_name }}</div>
+                                <div class="text-muted small">{{ nomination.student_email }}</div>
+                                <div class="text-muted small">{{ nomination.get_degree_level_display }} · {{ nomination.get_year_of_study_display }}</div>
+                            </td>
+                            <td>
+                                <div class="fw-semibold">{{ nomination.institution }}</div>
+                                <div class="text-muted small">Major: {{ nomination.major }}</div>
+                            </td>
+                            <td>
+                                <div class="fw-semibold">{{ nomination.coordinator_name }}</div>
+                                <div class="text-muted small">{{ nomination.coordinator_email }}</div>
+                            </td>
+                            <td>
+                                <div class="fw-semibold">{{ nomination.get_semester_to_apply_for_display }}</div>
+                                <div class="text-muted small">{{ nomination.academic_year }}</div>
+                            </td>
+                            <td>
+                                <div class="fw-semibold">{{ nomination.completed_credits }} / {{ nomination.total_required_credits }}</div>
+                                <div class="text-muted small">Semesters: {{ nomination.completed_semesters }}</div>
+                            </td>
+                            <td>
+                                <div class="fw-semibold">{{ nomination.submitted_at|date:'M j, Y' }}</div>
+                                <div class="text-muted small">{{ nomination.submitted_at|date:'H:i' }}</div>
+                            </td>
+                            <td class="text-end">
+                                <form method="post" action="{% url 'toggle_exchange_nomination_archive' nomination.id %}">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                    {% if nomination.is_archived %}
+                                        <input type="hidden" name="action" value="restore">
+                                        <button class="btn btn-outline-success btn-sm" type="submit">
+                                            <i class="fas fa-undo me-1"></i>Restore
+                                        </button>
+                                    {% else %}
+                                        <input type="hidden" name="action" value="archive">
+                                        <button class="btn btn-outline-secondary btn-sm" type="submit">
+                                            <i class="fas fa-archive me-1"></i>Archive
+                                        </button>
+                                    {% endif %}
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5 bg-light rounded border">
+                <i class="fas fa-inbox fa-2x mb-3 text-muted"></i>
+                <p class="mb-0 text-muted">No nominations {% if show_archived %}have been archived yet{% else %}await processing{% endif %}.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

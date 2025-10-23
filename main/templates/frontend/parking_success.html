@@ -1,0 +1,152 @@
+{% extends 'frontend/layout.html' %}
+{% load static %}
+
+{% block title %}Application Submitted - Parking{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-lg border-0">
+                <div class="card-body text-center p-5">
+                    <!-- Success Icon -->
+                    <div class="mb-4">
+                        <div class="success-icon-container">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="#28a745" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <polyline points="16 10 10 16 8 14"></polyline>
+                            </svg>
+                        </div>
+                    </div>
+
+                    <!-- Success Message -->
+                    <h2 class="text-success mb-3">
+                        <i class="fas fa-check-circle"></i> Application Submitted Successfully!
+                    </h2>
+                    
+                    <p class="lead text-muted mb-4">
+                        Thank you for applying for a DLC parking spot!
+                    </p>
+
+                    <!-- Application Details Card -->
+                    <div class="card bg-light mb-4">
+                        <div class="card-body">
+                            <h5 class="card-title mb-3">Your Application Details</h5>
+                            <div class="row text-start">
+                                <div class="col-md-6 mb-2">
+                                    <strong>Student ID:</strong><br>
+                                    <span class="text-muted">{{ application.student_id }}</span>
+                                </div>
+                                <div class="col-md-6 mb-2">
+                                    <strong>Name:</strong><br>
+                                    <span class="text-muted">{{ application.student_name }}</span>
+                                </div>
+                                <div class="col-md-6 mb-2">
+                                    <strong>Phone:</strong><br>
+                                    <span class="text-muted">{{ application.phone }}</span>
+                                </div>
+                                <div class="col-md-6 mb-2">
+                                    <strong>GPA:</strong><br>
+                                    <span class="text-success fw-bold">{{ application.gpa }}</span>
+                                </div>
+                                <div class="col-md-6 mb-2">
+                                    <strong>Completed Credits:</strong><br>
+                                    <span class="text-muted">{{ application.completed_credits }}</span>
+                                </div>
+                                <div class="col-md-6 mb-2">
+                                    <strong>Major:</strong><br>
+                                    <span class="text-muted">{{ application.get_major_display }}</span>
+                                </div>
+                                <div class="col-md-6 mb-2">
+                                    <strong>Submitted:</strong><br>
+                                    <span class="text-muted">{{ application.submitted_at|date:"F d, Y - g:i A" }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Important Information -->
+                    <div class="alert alert-info text-start mb-4">
+                        <h6 class="alert-heading">
+                            <i class="fas fa-info-circle"></i> What Happens Next?
+                        </h6>
+                        <hr>
+                        <ul class="mb-0">
+                            <li>Your application will be reviewed by the DLC committee</li>
+                            <li>Priority is given to students with <strong>higher GPAs</strong></li>
+                            <li>We will contact you <strong>via phone or email</strong> if you are selected</li>
+                            <li>Selected students will be notified within <strong>1-2 weeks</strong></li>
+                        </ul>
+                    </div>
+
+                    <!-- Contact Information -->
+                    <div class="alert alert-warning text-start mb-4">
+                        <small>
+                            <i class="fas fa-exclamation-triangle"></i> 
+                            <strong>Important:</strong> Please ensure your phone number is correct. 
+                            If you need to update your information, please contact us through the Contact page.
+                        </small>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'home' %}" class="btn btn-primary btn-lg">
+                            <i class="fas fa-home"></i> Return to Home
+                        </a>
+                        <a href="{% url 'contact' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-envelope"></i> Contact Us
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.success-icon-container {
+    display: inline-block;
+    animation: scaleIn 0.5s ease-in-out;
+}
+
+@keyframes scaleIn {
+    0% {
+        transform: scale(0);
+        opacity: 0;
+    }
+    50% {
+        transform: scale(1.1);
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.card {
+    border-radius: 15px;
+    animation: slideUp 0.6s ease-out;
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(30px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.card-body {
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+    border-radius: 15px;
+}
+
+.bg-light {
+    background: white !important;
+    border: 1px solid #dee2e6;
+}
+</style>
+{% endblock %}

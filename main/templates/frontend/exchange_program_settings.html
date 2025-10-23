@@ -1,0 +1,187 @@
+{% extends 'frontend/portal.html' %}
+{% load static %}
+
+{% block portal_content %}
+{% csrf_token %}
+
+<div class="settings-container" style="max-width: 900px; margin: 0 auto; padding: 30px;">
+    <div class="settings-header mb-4">
+        <h2><i class="fas fa-plane-departure"></i> Exchange Program Settings</h2>
+        <p class="text-muted">Control the visibility of the Exchange Program page on the public website</p>
+    </div>
+
+    {% if message %}
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <i class="fas fa-check-circle"></i> {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endif %}
+
+    {% if error_message %}
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <i class="fas fa-exclamation-circle"></i> {{ error_message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endif %}
+
+    <!-- Current Status Card -->
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+            <h5 class="mb-0"><i class="fas fa-info-circle"></i> Current Status</h5>
+        </div>
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h4 class="mb-2">
+                        Exchange Program is currently:
+                        {% if settings.is_visible %}
+                            <span class="badge bg-success" style="font-size: 1.1em;">
+                                <i class="fas fa-eye"></i> VISIBLE
+                            </span>
+                        {% else %}
+                            <span class="badge bg-warning text-dark" style="font-size: 1.1em;">
+                                <i class="fas fa-eye-slash"></i> HIDDEN
+                            </span>
+                        {% endif %}
+                    </h4>
+                    <p class="text-muted mb-0">
+                        {% if settings.is_visible %}
+                            The public can view and submit exchange applications.
+                        {% else %}
+                            A "Coming Soon" page is displayed instead.
+                        {% endif %}
+                    </p>
+                    {% if settings.updated_by %}
+                    <small class="text-muted">
+                        Last updated by <strong>{{ settings.updated_by.get_full_name }}</strong> 
+                        on {{ settings.last_updated|date:"F d, Y - g:i A" }}
+                    </small>
+                    {% endif %}
+                </div>
+                <div class="col-md-4 text-center">
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="toggle_visibility">
+                        {% if settings.is_visible %}
+                            <button type="submit" class="btn btn-warning btn-lg w-100">
+                                <i class="fas fa-eye-slash"></i><br>
+                                Hide Exchange Program
+                            </button>
+                        {% else %}
+                            <button type="submit" class="btn btn-success btn-lg w-100">
+                                <i class="fas fa-eye"></i><br>
+                                Show Exchange Program
+                            </button>
+                        {% endif %}
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Coming Soon Message Card -->
+    <div class="card shadow-sm">
+        <div class="card-header bg-light">
+            <h5 class="mb-0"><i class="fas fa-comment-dots"></i> "Coming Soon" Message</h5>
+        </div>
+        <div class="card-body">
+            <p class="text-muted">This message is displayed when the Exchange Program is hidden:</p>
+            
+            <div class="alert alert-info mb-3">
+                <strong>Current Message Preview:</strong><br>
+                {{ settings.coming_soon_message }}
+            </div>
+
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="update_message">
+                
+                <div class="mb-3">
+                    <label for="coming_soon_message" class="form-label">
+                        <strong>Edit Message</strong>
+                    </label>
+                    <textarea 
+                        name="coming_soon_message" 
+                        id="coming_soon_message" 
+                        class="form-control" 
+                        rows="4" 
+                        placeholder="Enter the message to display when exchange program is hidden..."
+                    >{{ settings.coming_soon_message }}</textarea>
+                    <small class="text-muted">
+                        This message will be shown to visitors when the exchange program is hidden.
+                    </small>
+                </div>
+
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Update Message
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Help Card -->
+    <div class="card mt-4 border-info">
+        <div class="card-body">
+            <h6 class="card-title"><i class="fas fa-question-circle text-info"></i> How It Works</h6>
+            <ul class="mb-0">
+                <li><strong>Visible:</strong> The full exchange program page with nomination form and applications is accessible to the public.</li>
+                <li><strong>Hidden:</strong> Visitors see a "Coming Soon" page with your custom message instead.</li>
+                <li><strong>Portal Access:</strong> All exchange dashboards in the portal remain accessible regardless of public visibility.</li>
+                <li><strong>Use Case:</strong> Hide the program during off-seasons or when not accepting applications.</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Preview Links -->
+    <div class="card mt-4 bg-light">
+        <div class="card-body text-center">
+            <h6 class="card-title">Preview Pages</h6>
+            <a href="{% url 'exchange_program' %}" target="_blank" class="btn btn-outline-primary me-2">
+                <i class="fas fa-external-link-alt"></i> View Public Page
+            </a>
+            {% if user.is_superuser or user.is_exchange_officer %}
+            <a href="{% url 'exchange_dashboard' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-tachometer-alt"></i> Go to Dashboard
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+.settings-container {
+    animation: slideIn 0.5s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.card {
+    border-radius: 10px;
+    transition: transform 0.2s;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+}
+
+.btn {
+    transition: all 0.3s;
+}
+
+.btn:hover {
+    transform: scale(1.02);
+}
+</style>
+
+{% endblock %}

@@ -1,5 +1,6 @@
 import random
 
+from django.core.validators import FileExtensionValidator
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 
@@ -20,6 +21,7 @@ roles = [
     ('PRESIDENT', 'President'),
     ('VICE_PRESIDENT', 'Vice President'),
     ('TREASURER', 'Treasurer'),
+    ('EXCHANGE_OFFICER', 'Exchange Officer'),
 ]
 
 # Create your models here.
@@ -36,6 +38,126 @@ class Application(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class ParkingApplication(models.Model):
+    student_id = models.CharField(max_length=20, unique=True)
+    student_name = models.CharField(max_length=150)
+    phone = models.CharField(max_length=15)
+    gpa = models.DecimalField(max_digits=4, decimal_places=2)
+    completed_credits = models.IntegerField()
+    major = models.CharField(max_length=4, choices=majors)
+    has_kuwaiti_license = models.BooleanField(default=False)
+    submitted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-gpa', '-submitted_at']
+
+    def __str__(self):
+        return f"{self.student_name} ({self.student_id}) - GPA: {self.gpa}"
+
+
+class ExchangeApplication(models.Model):
+    PROGRAM_LEVEL_CHOICES = [
+        ("UNDERGRADUATE", "Undergraduate"),
+        ("GRADUATE", "Graduate"),
+    ]
+
+    SEMESTER_CHOICES = [
+        ("FALL", "Fall"),
+        ("SPRING", "Spring"),
+        ("SUMMER", "Summer"),
+    ]
+
+    GENDER_CHOICES = [
+        ("FEMALE", "Female"),
+        ("MALE", "Male"),
+        ("OTHER", "Other / Prefer not to say"),
+    ]
+
+    first_name = models.CharField(max_length=120)
+    last_name = models.CharField(max_length=120)
+    date_of_birth = models.DateField()
+    home_institution = models.ForeignKey(
+        'PartnerUniversity',
+        on_delete=models.PROTECT,
+        related_name='exchange_applications'
+    )
+    home_major = models.CharField(max_length=150)
+    program_level = models.CharField(max_length=20, choices=PROGRAM_LEVEL_CHOICES)
+    exchange_semester = models.CharField(max_length=10, choices=SEMESTER_CHOICES)
+    exchange_academic_year = models.CharField(max_length=9)
+    gender = models.CharField(max_length=10, choices=GENDER_CHOICES)
+    passport_number = models.CharField(max_length=50)
+    passport_expiry_date = models.DateField()
+    email = models.EmailField()
+    completed_credits = models.PositiveIntegerField()
+    english_proficiency_document = models.FileField(
+        upload_to='exchange_applications/english/',
+        validators=[FileExtensionValidator(['pdf'])]
+    )
+    transcript_document = models.FileField(
+        upload_to='exchange_applications/transcripts/',
+        validators=[FileExtensionValidator(['pdf'])]
+    )
+    passport_copy = models.FileField(
+        upload_to='exchange_applications/passports/',
+        validators=[FileExtensionValidator(['pdf', 'png', 'jpg', 'jpeg'])]
+    )
+    accommodation_needed = models.BooleanField(default=False)
+    has_criminal_record = models.BooleanField(default=False)
+    coordinator_name = models.CharField(max_length=150)
+    coordinator_email = models.EmailField()
+    is_archived = models.BooleanField(default=False)
+    submitted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-submitted_at"]
+
+    def __str__(self):
+        return f"{self.first_name} {self.last_name} - {self.home_institution.name}" if self.home_institution_id else f"{self.first_name} {self.last_name}"
+
+
+class ExchangeNomination(models.Model):
+    YEAR_OF_STUDY_CHOICES = [
+        ("FIRST", "1st Year"),
+        ("SECOND", "2nd Year"),
+        ("THIRD", "3rd Year"),
+        ("FOURTH", "4th Year"),
+    ]
+
+    DEGREE_LEVEL_CHOICES = [
+        ("BACHELORS", "Bachelor's"),
+        ("MASTERS", "Master's"),
+    ]
+
+    SEMESTER_CHOICES = [
+        ("FALL", "Fall"),
+        ("SPRING", "Spring"),
+        ("SUMMER", "Summer"),
+    ]
+
+    full_name = models.CharField(max_length=150)
+    student_email = models.EmailField()
+    coordinator_name = models.CharField(max_length=150)
+    coordinator_email = models.EmailField()
+    institution = models.CharField(max_length=150)
+    year_of_study = models.CharField(max_length=10, choices=YEAR_OF_STUDY_CHOICES)
+    degree_level = models.CharField(max_length=10, choices=DEGREE_LEVEL_CHOICES)
+    semester_to_apply_for = models.CharField(max_length=10, choices=SEMESTER_CHOICES)
+    academic_year = models.CharField(max_length=9, help_text="Academic year in YYYY/YYYY format")
+    completed_credits = models.PositiveIntegerField()
+    total_required_credits = models.PositiveIntegerField()
+    major = models.CharField(max_length=150)
+    completed_semesters = models.PositiveIntegerField(help_text="Number of completed ordinary semesters at the home institution")
+    is_archived = models.BooleanField(default=False)
+    submitted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-submitted_at"]
+
+    def __str__(self):
+        return f"{self.full_name} - {self.institution}"
     
 class User(AbstractUser):
     first_name = models.CharField(max_length=30)
@@ -43,6 +165,19 @@ class User(AbstractUser):
     role = models.CharField(max_length=20, choices=roles)
     is_member = models.BooleanField(default=False)
     is_admin = models.BooleanField(default=False)
+    is_exchange_officer = models.BooleanField(default=False)
+
+
+class PartnerUniversity(models.Model):
+    name = models.CharField(max_length=150, unique=True)
+    logo = models.ImageField(upload_to='partners/')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
 
 
 class DeanList(models.Model):
@@ -142,6 +277,43 @@ class ThreadSettings(models.Model):
     def __str__(self):
         status = "Open" if self.allow_new_threads else "Closed"
         return f"Thread Creation: {status}"
+
+
+class ExchangeProgramSettings(models.Model):
+    """
+    Singleton model to store exchange program visibility settings
+    """
+    is_visible = models.BooleanField(default=False, help_text="Show exchange program page to public")
+    coming_soon_message = models.TextField(
+        default="The Exchange Program is currently being prepared. Check back soon for exciting opportunities!",
+        blank=True,
+        help_text="Message to display when exchange program is hidden"
+    )
+    last_updated = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    
+    class Meta:
+        verbose_name = "Exchange Program Settings"
+        verbose_name_plural = "Exchange Program Settings"
+    
+    def save(self, *args, **kwargs):
+        # Ensure only one instance exists (singleton pattern)
+        self.pk = 1
+        super().save(*args, **kwargs)
+    
+    def delete(self, *args, **kwargs):
+        # Prevent deletion of the singleton instance
+        pass
+    
+    @classmethod
+    def get_settings(cls):
+        """Get the singleton instance, create if doesn't exist"""
+        obj, created = cls.objects.get_or_create(pk=1)
+        return obj
+    
+    def __str__(self):
+        status = "Visible" if self.is_visible else "Hidden (Coming Soon)"
+        return f"Exchange Program: {status}"
 
 
 class Course(models.Model):

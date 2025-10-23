@@ -26,7 +26,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-86162mfuujat(l3&k)8@mgv@@43(r226!n=%s2a+v-vuuz9^@q')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = 'RENDER' not in os.environ and 'RAILWAY' not in os.environ
+# DEBUG is False when RAILWAY_ENVIRONMENT is set (Railway hosting)
+DEBUG = os.environ.get('RAILWAY_ENVIRONMENT') is None
 
 ALLOWED_HOSTS = []
 CSRF_TRUSTED_ORIGINS = [

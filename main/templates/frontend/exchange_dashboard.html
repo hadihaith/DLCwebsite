@@ -1,0 +1,370 @@
+{% extends 'frontend/layout.html' %}
+{% load static %}
+
+{% block title %}Exchange Program Dashboard{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top: 140px; padding-bottom: 60px;">
+    <div class="row mb-4 align-items-center">
+        <div class="col">
+            <h1 class="fw-bold" style="color:#4a2e5f;">Exchange Program Dashboard</h1>
+            <p class="text-muted mb-0">High-level view of partner universities, nominations, and incoming applications.</p>
+        </div>
+        <div class="col-auto d-flex flex-wrap gap-2">
+            <a class="btn btn-outline-secondary" href="{% url 'exchange_program' %}" target="_blank" rel="noopener noreferrer">
+                <i class="fas fa-external-link-alt me-1"></i>Public Exchange Page
+            </a>
+            <a class="btn btn-primary" href="{% url 'exchange_officer_dashboard' %}">
+                <i class="fas fa-tasks me-1"></i>Manage Nominations
+            </a>
+            <a class="btn btn-outline-primary" href="{% url 'exchange_application_management' %}">
+                <i class="fas fa-clipboard-list me-1"></i>Manage Applications
+            </a>
+            <button class="btn btn-success" type="button" data-bs-toggle="collapse" data-bs-target="#add-partner-form" aria-expanded="{% if partner_form.errors %}true{% else %}false{% endif %}" aria-controls="add-partner-form">
+                <i class="fas fa-university me-1"></i>Add Partner University
+            </button>
+        </div>
+    </div>
+
+    {% if messages %}
+    <div class="mb-3">
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div id="add-partner-form" class="collapse mb-4{% if partner_form.errors %} show{% endif %}">
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <h2 class="h5 mb-3">Add Partner University</h2>
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <input type="hidden" name="form_type" value="add_partner">
+                    {% if partner_form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {% for error in partner_form.non_field_errors %}
+                                <div>{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label" for="id_name">{{ partner_form.name.label }}</label>
+                            {{ partner_form.name }}
+                            {% if partner_form.name.errors %}
+                                <div class="text-danger small mt-1">{{ partner_form.name.errors|join:', ' }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="id_logo">{{ partner_form.logo.label }}</label>
+                            {{ partner_form.logo }}
+                            <div class="form-text">Upload the partner's logo (PNG or JPG).</div>
+                            {% if partner_form.logo.errors %}
+                                <div class="text-danger small mt-1">{{ partner_form.logo.errors|join:', ' }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-plus-circle me-1"></i>Save Partner
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-sm-6 col-lg-3">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body">
+                    <div class="text-muted text-uppercase small mb-2">Active Nominations</div>
+                    <div class="display-6 fw-bold text-primary">{{ stats.active_nominations }}</div>
+                    <div class="small text-muted">Average credit completion {{ stats.average_completion_rate }}%</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body">
+                    <div class="text-muted text-uppercase small mb-2">Archived</div>
+                    <div class="display-6 fw-bold text-secondary">{{ stats.archived_nominations }}</div>
+                    <div class="small text-muted">Across {{ stats.total_nominations }} total submissions</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body">
+                    <div class="text-muted text-uppercase small mb-2">Partner Universities</div>
+                    <div class="display-6 fw-bold text-success">{{ stats.partner_count }}</div>
+                    <div class="small text-muted">Last additions shown below</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body">
+                    <div class="text-muted text-uppercase small mb-2">Incoming Applications</div>
+                    <div class="display-6 fw-bold text-info">{{ stats.application_count }}</div>
+                    <div class="small text-muted">Latest five listed on the right</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-white border-0 pb-0">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h2 class="h5 mb-1">Recent Active Nominations</h2>
+                            <p class="text-muted small mb-0">Latest submissions needing follow-up.</p>
+                        </div>
+                        <span class="badge bg-light text-primary">{{ stats.active_nominations }} active</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if recent_nominations %}
+                    <div class="table-responsive">
+                        <table class="table align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th scope="col">Student</th>
+                                    <th scope="col">Institution</th>
+                                    <th scope="col">Semester</th>
+                                    <th scope="col">Credits</th>
+                                    <th scope="col">Submitted</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for nomination in recent_nominations %}
+                                <tr>
+                                    <td>
+                                        <div class="fw-semibold">{{ nomination.full_name }}</div>
+                                        <div class="text-muted small">{{ nomination.student_email }}</div>
+                                    </td>
+                                    <td>
+                                        <div class="fw-semibold">{{ nomination.institution }}</div>
+                                        <div class="text-muted small">{{ nomination.major }}</div>
+                                    </td>
+                                    <td>
+                                        <div class="fw-semibold">{{ nomination.get_semester_to_apply_for_display }}</div>
+                                        <div class="text-muted small">{{ nomination.academic_year }}</div>
+                                    </td>
+                                    <td>
+                                        <div class="fw-semibold">{{ nomination.completed_credits }} / {{ nomination.total_required_credits }}</div>
+                                        <div class="text-muted small">{{ nomination.completed_semesters }} semesters</div>
+                                    </td>
+                                    <td>
+                                        <div class="fw-semibold">{{ nomination.submitted_at|date:'M j, Y' }}</div>
+                                        <div class="text-muted small">{{ nomination.submitted_at|date:'H:i' }}</div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4 text-muted">No active nominations yet.</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="card shadow-sm border-0 h-100">
+                        <div class="card-body">
+                            <h3 class="h6 mb-3">Semester Mix</h3>
+                            {% if semester_breakdown %}
+                                <ul class="list-unstyled mb-0">
+                                    {% for entry in semester_breakdown %}
+                                    <li class="d-flex justify-content-between align-items-center py-1 border-bottom border-light">
+                                        <span>{{ entry.label }}</span>
+                                        <span class="badge bg-primary rounded-pill">{{ entry.count }}</span>
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                            {% else %}
+                                <p class="text-muted small mb-0">No active nominations to display.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card shadow-sm border-0 h-100">
+                        <div class="card-body">
+                            <h3 class="h6 mb-3">Degree Levels</h3>
+                            {% if degree_breakdown %}
+                                <ul class="list-unstyled mb-0">
+                                    {% for entry in degree_breakdown %}
+                                    <li class="d-flex justify-content-between align-items-center py-1 border-bottom border-light">
+                                        <span>{{ entry.label }}</span>
+                                        <span class="badge bg-secondary rounded-pill">{{ entry.count }}</span>
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                            {% else %}
+                                <p class="text-muted small mb-0">No active nominations to display.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-body">
+                    <h3 class="h6 mb-3">Latest Exchange Applications</h3>
+                    {% if recent_applications %}
+                        <ul class="list-group list-group-flush">
+                            {% for application in recent_applications %}
+                            <li class="list-group-item px-0">
+                                <div class="fw-semibold">{{ application.first_name }} {{ application.last_name }}</div>
+                                <div class="text-muted small">{{ application.home_institution.name }} &middot; {{ application.home_major }}</div>
+                                <div class="text-muted small">{{ application.get_program_level_display }} &middot; {{ application.get_exchange_semester_display }} {{ application.exchange_academic_year }}</div>
+                                <div class="text-muted small">Submitted {{ application.submitted_at|date:'M j, Y H:i' }}</div>
+                                <div class="small"><a href="mailto:{{ application.email }}" class="link-primary">{{ application.email }}</a></div>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p class="text-muted small mb-0">No applications submitted yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <h3 class="h6 mb-3">Newest Partner Universities</h3>
+                    {% if recent_partners %}
+                        <div class="row g-3">
+                            {% for partner in recent_partners %}
+                            <div class="col-6">
+                                <div class="border rounded text-center p-3 h-100">
+                                    {% if partner.logo %}
+                                    <div class="mb-2" style="height:48px; display:flex; align-items:center; justify-content:center;">
+                                        <img src="{{ partner.logo.url }}" alt="{{ partner.name }}" style="max-height:48px; max-width:100%; object-fit:contain;">
+                                    </div>
+                                    {% endif %}
+                                    <div class="small fw-semibold">{{ partner.name }}</div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted small mb-0">No partner universities recorded yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="card shadow-sm border-0 mt-4">
+                <div class="card-body">
+                    <h3 class="h6 mb-3">Manage Partner Directory</h3>
+                    {% if partner_directory %}
+                        <div class="table-responsive" style="max-height: 320px;">
+                            <table class="table table-sm align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th scope="col">Partner</th>
+                                        <th scope="col" class="text-end">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for partner in partner_directory %}
+                                    <tr>
+                                        <td>{{ partner.name }}</td>
+                                        <td class="text-end">
+                                            <form method="post" style="display:inline;" class="partner-delete-form" data-name="{{ partner.name|escape }}">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="form_type" value="delete_partner">
+                                                <input type="hidden" name="partner_id" value="{{ partner.id }}">
+                                                <button type="button" class="btn btn-outline-danger btn-sm partner-delete-trigger">
+                                                    <i class="fas fa-trash-alt me-1"></i>Delete
+                                                </button>
+
+                                                <div class="inline-confirm" style="display:none;">
+                                                    <div class="inline-confirm-inner">
+                                                        <div class="inline-confirm-title">Remove <span class="confirm-name"></span>?</div>
+                                                        <div class="inline-confirm-actions">
+                                                            <button type="button" class="btn btn-sm btn-secondary btn-cancel">Cancel</button>
+                                                            <button type="submit" class="btn btn-sm btn-danger btn-confirm" style="margin-left:6px;">
+                                                                <i class="fas fa-trash-alt me-1"></i>Delete
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted small mb-0">No partner universities available.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+            <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                document.querySelectorAll('.partner-delete-form').forEach(function(form) {
+                    var trigger = form.querySelector('.partner-delete-trigger');
+                    var inline = form.querySelector('.inline-confirm');
+                    if (!trigger || !inline) {
+                        return;
+                    }
+
+                    var name = form.getAttribute('data-name') || 'this partner';
+                    var nameSpan = inline.querySelector('.confirm-name');
+                    if (nameSpan) {
+                        nameSpan.textContent = name;
+                    }
+
+                    trigger.addEventListener('click', function() {
+                        var backdrop = document.createElement('div');
+                        backdrop.className = 'confirm-backdrop';
+                        document.body.appendChild(backdrop);
+
+                        var modal = document.createElement('div');
+                        modal.className = 'confirm-modal';
+                        modal.innerHTML = inline.querySelector('.inline-confirm-inner').outerHTML;
+                        document.body.appendChild(modal);
+
+                        var modalName = modal.querySelector('.confirm-name');
+                        if (modalName) {
+                            modalName.textContent = name;
+                        }
+
+                        modal.querySelector('.btn-cancel').addEventListener('click', function() {
+                            modal.remove();
+                            backdrop.remove();
+                        });
+
+                        modal.querySelector('.btn-confirm').addEventListener('click', function() {
+                            form.submit();
+                        });
+
+                        backdrop.addEventListener('click', function() {
+                            modal.remove();
+                            backdrop.remove();
+                        });
+                    });
+                });
+            });
+
+            var style = document.createElement('style');
+            style.textContent = '\n.confirm-backdrop { position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:1050; }\n.confirm-modal { position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); background:white; padding:18px; border-radius:8px; box-shadow:0 8px 32px rgba(0,0,0,0.35); z-index:1051; width:90%; max-width:420px; }\n.confirm-modal .inline-confirm-title { font-size:1.05em; margin-bottom:12px; font-weight:600; }\n.confirm-modal .inline-confirm-actions { text-align:right; display:flex; justify-content:flex-end; gap:8px; }\n';
+            document.head.appendChild(style);
+            </script>
+{% endblock %}

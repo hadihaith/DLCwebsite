@@ -1,5 +1,5 @@
 
-from .models import Application, User, DeanListStudent, DeanList, Thread, Reply, ThreadSettings, majors
+from .models import Application, ExchangeApplication, ExchangeNomination, PartnerUniversity, User, DeanListStudent, DeanList, Thread, Reply, ThreadSettings, majors
 from django.shortcuts import redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout
 from django.db import IntegrityError
@@ -15,12 +15,12 @@ from datetime import datetime, timedelta
 from .utils import process_dean_list_excel
 from user_agents import parse
 from django.contrib import messages
-from django.db.models import Q
+from django.db.models import Q, Count
 import random
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 import os
 import re
-from .forms import EventForm
+from .forms import EventForm, ExchangeApplicationForm, PartnerUniversityForm
 import requests
 from django.http import HttpResponse, HttpResponseBadRequest
 from urllib.parse import urlparse, quote
@@ -375,6 +375,571 @@ def apply(request):
         application.save()
         return render(request, 'frontend/success.html', {'application': application})
     return render(request, 'frontend/apply.html')
+
+
+def parking_application(request):
+    from .forms import ParkingApplicationForm
+    from .models import ParkingApplication, DeanListStudent
+    
+    submitted = False
+    error_message = None
+    
+    if request.method == 'POST':
+        form = ParkingApplicationForm(request.POST)
+        if form.is_valid():
+            student_id = form.cleaned_data['student_id']
+            
+            # Check if student is in the latest dean's list
+            latest_dean_list = DeanListStudent.objects.order_by('-year', '-semester').values('semester', 'year').first()
+            
+            if latest_dean_list:
+                is_in_deans_list = DeanListStudent.objects.filter(
+                    student_id=student_id,
+                    semester=latest_dean_list['semester'],
+                    year=latest_dean_list['year']
+                ).exists()
+                
+                if not is_in_deans_list:
+                    error_message = 'You must be in the latest published Dean\'s List to apply for parking.'
+                else:
+                    # Check if already applied
+                    if ParkingApplication.objects.filter(student_id=student_id).exists():
+                        error_message = 'You have already submitted a parking application.'
+                    else:
+                        application = form.save()
+                        # Redirect to success page
+                        return render(request, 'frontend/parking_success.html', {
+                            'application': application
+                        })
+            else:
+                error_message = 'No Dean\'s List data available. Please contact administration.'
+    else:
+        form = ParkingApplicationForm()
+    
+    context = {
+        'form': form,
+        'error_message': error_message,
+    }
+    return render(request, 'frontend/parking_application.html', context)
+
+
+@login_required
+def parking_management(request):
+    """
+    Manage parking spot applications - view all applications with eligibility verification
+    """
+    from .models import ParkingApplication, DeanListStudent
+    from decimal import Decimal
+    
+    # Device detection - block mobile and tablet devices
+    user_agent = parse(request.META.get('HTTP_USER_AGENT', ''))
+    
+    if user_agent.is_mobile or user_agent.is_tablet:
+        return render(request, 'frontend/desktop_only.html', {
+            'device_type': 'mobile device' if user_agent.is_mobile else 'tablet'
+        })
+    
+    # Get latest Dean's List info for verification
+    latest_dean_list = DeanListStudent.objects.order_by('-year', '-semester').values('semester', 'year').first()
+    
+    # Get all parking applications ordered by GPA (highest first)
+    all_applications = ParkingApplication.objects.all()
+    
+    # Separate eligible and ineligible applications
+    eligible_apps = []
+    ineligible_apps = []
+    
+    for app in all_applications:
+        # Check eligibility criteria
+        gpa_check = app.gpa >= Decimal('3.67')
+        license_check = app.has_kuwaiti_license
+        
+        # Check if in latest Dean's List
+        deans_list_check = False
+        if latest_dean_list:
+            deans_list_check = DeanListStudent.objects.filter(
+                student_id=app.student_id,
+                semester=latest_dean_list['semester'],
+                year=latest_dean_list['year']
+            ).exists()
+        
+        is_eligible = gpa_check and license_check and deans_list_check
+        
+        if is_eligible:
+            eligible_apps.append(app)
+        else:
+            ineligible_apps.append(app)
+    
+    # Eligible apps are already sorted by -gpa, -submitted_at in model Meta ordering
+    # Sort ineligible apps the same way
+    ineligible_apps.sort(key=lambda x: (-x.gpa, -x.submitted_at))
+    
+    # Combine lists with eligible first, then ineligible
+    applications = eligible_apps + ineligible_apps
+    
+    # Add eligibility status and rejection reasons to each application
+    applications_with_status = []
+    separator_added = False
+    
+    for app in applications:
+        # Check all eligibility criteria
+        gpa_check = app.gpa >= Decimal('3.67')
+        license_check = app.has_kuwaiti_license
+        
+        deans_list_check = False
+        if latest_dean_list:
+            deans_list_check = DeanListStudent.objects.filter(
+                student_id=app.student_id,
+                semester=latest_dean_list['semester'],
+                year=latest_dean_list['year']
+            ).exists()
+        
+        is_eligible = gpa_check and license_check and deans_list_check
+        
+        # Add separator before first ineligible application
+        add_separator = not is_eligible and not separator_added and len(eligible_apps) > 0
+        if add_separator:
+            separator_added = True
+        
+        # Determine rejection reasons
+        rejection_reasons = []
+        if not gpa_check:
+            rejection_reasons.append(f"GPA below 3.67 ({app.gpa})")
+        if not license_check:
+            rejection_reasons.append("No Kuwaiti driver's license")
+        if not deans_list_check:
+            rejection_reasons.append("Not in latest Dean's List")
+        
+        # Get major display name
+        major_display = dict(majors).get(app.major, app.major)
+        
+        applications_with_status.append({
+            'application': app,
+            'eligible': is_eligible,
+            'rejection_reasons': rejection_reasons,
+            'major_display': major_display,
+            'add_separator': add_separator
+        })
+    
+    # Calculate statistics
+    total_applications = len(applications_with_status)
+    eligible_applications = len([app for app in applications_with_status if app['eligible']])
+    ineligible_applications = total_applications - eligible_applications
+    
+    # Average GPA for eligible applications
+    avg_gpa = 0
+    if eligible_applications > 0:
+        avg_gpa = sum([app['application'].gpa for app in applications_with_status if app['eligible']]) / eligible_applications
+    
+    # Check if user can delete applications
+    allowed_roles = ['PRESIDENT', 'VICE_PRESIDENT', 'SECRETARY']
+    can_delete = request.user.is_superuser or request.user.is_staff or request.user.role in allowed_roles
+    can_delete_all = can_delete
+    
+    context = {
+        'applications_with_status': applications_with_status,
+        'total_applications': total_applications,
+        'eligible_applications': eligible_applications,
+        'ineligible_applications': ineligible_applications,
+        'avg_gpa': avg_gpa,
+        'can_delete': can_delete,
+        'can_delete_all': can_delete_all,
+        'latest_dean_list': latest_dean_list,
+    }
+    
+    return render(request, 'frontend/parking_management.html', context)
+
+
+@login_required
+@require_POST
+def delete_parking_application(request, application_id):
+    """
+    Delete a specific parking application - only for superstaff and specific roles
+    """
+    from .models import ParkingApplication
+    
+    # Check if user has permission to delete applications
+    allowed_roles = ['PRESIDENT', 'VICE_PRESIDENT', 'SECRETARY']
+    if not (request.user.is_superuser or request.user.is_staff or request.user.role in allowed_roles):
+        return JsonResponse({'success': False, 'message': 'Insufficient permissions to delete applications'})
+    
+    try:
+        application = ParkingApplication.objects.get(id=application_id)
+        application.delete()
+        return JsonResponse({'success': True, 'message': 'Parking application deleted successfully'})
+    except ParkingApplication.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Parking application not found'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+
+@login_required
+@require_POST
+def delete_all_parking_applications(request):
+    """
+    Delete all parking applications - only for superstaff and specific roles
+    """
+    from .models import ParkingApplication
+    
+    # Check if user has permission
+    allowed_roles = ['PRESIDENT', 'VICE_PRESIDENT', 'SECRETARY']
+    if not (request.user.is_superuser or request.user.is_staff or request.user.role in allowed_roles):
+        return JsonResponse({'success': False, 'message': 'Insufficient permissions'})
+    
+    try:
+        count = ParkingApplication.objects.count()
+        ParkingApplication.objects.all().delete()
+        return JsonResponse({'success': True, 'message': f'{count} parking applications deleted successfully'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+
+def exchange_program(request):
+    from .models import ExchangeProgramSettings
+    
+    # Check if exchange program is visible
+    settings = ExchangeProgramSettings.get_settings()
+    if not settings.is_visible:
+        # Show coming soon page
+        return render(request, 'frontend/exchange_coming_soon.html', {
+            'message': settings.coming_soon_message
+        })
+    
+    nomination_years = ExchangeNomination.YEAR_OF_STUDY_CHOICES
+    degree_levels = ExchangeNomination.DEGREE_LEVEL_CHOICES
+    semester_choices = ExchangeNomination.SEMESTER_CHOICES
+    partner_universities = PartnerUniversity.objects.order_by('name')
+
+    errors = []
+    success = False
+    default_form_data = {
+        'full_name': '',
+        'student_email': '',
+        'coordinator_name': '',
+        'coordinator_email': '',
+        'institution': '',
+        'year_of_study': '',
+        'degree_level': '',
+        'semester_to_apply_for': '',
+        'academic_year': '',
+        'completed_credits': '',
+        'total_required_credits': '',
+        'major': '',
+        'completed_semesters': '',
+    }
+    form_data = default_form_data.copy()
+
+    if request.method == 'POST':
+        form_data = request.POST.dict()
+        form_data.pop('csrfmiddlewaretoken', None)
+
+        full_name = form_data.get('full_name', '').strip()
+        student_email = form_data.get('student_email', '').strip()
+        coordinator_name = form_data.get('coordinator_name', '').strip()
+        coordinator_email = form_data.get('coordinator_email', '').strip()
+        institution = form_data.get('institution', '').strip()
+        year_of_study = form_data.get('year_of_study', '').strip()
+        degree_level = form_data.get('degree_level', '').strip()
+        semester_to_apply_for = form_data.get('semester_to_apply_for', '').strip()
+        academic_year = form_data.get('academic_year', '').strip()
+        completed_credits_raw = form_data.get('completed_credits', '').strip()
+        total_required_credits_raw = form_data.get('total_required_credits', '').strip()
+        major = form_data.get('major', '').strip()
+        completed_semesters_raw = form_data.get('completed_semesters', '').strip()
+
+        if not full_name:
+            errors.append('Full name is required.')
+        if not student_email:
+            errors.append('Student email address is required.')
+        if not coordinator_name:
+            errors.append('Exchange coordinator name is required.')
+        if not coordinator_email:
+            errors.append('Exchange coordinator email is required.')
+        if not institution:
+            errors.append('Home institution is required.')
+        elif not PartnerUniversity.objects.filter(name=institution).exists():
+            errors.append('Selected home institution is not recognized. Please pick from the list of partner universities.')
+        if year_of_study not in dict(nomination_years):
+            errors.append('Please select a valid year of study.')
+        if degree_level not in dict(degree_levels):
+            errors.append('Please specify whether the nominee is a bachelor\'s or master\'s student.')
+        if semester_to_apply_for not in dict(semester_choices):
+            errors.append('Please select the semester the nominee plans to attend.')
+        if not academic_year:
+            errors.append('The academic year is required (e.g., 2025/2026).')
+        else:
+            if not re.match(r"^\d{4}/\d{4}$", academic_year):
+                errors.append('Academic year must be in the format YYYY/YYYY (e.g., 2025/2026).')
+        if not major:
+            errors.append('Major in the home institution is required.')
+
+        completed_credits = None
+        total_required_credits = None
+        completed_semesters = None
+
+        if not completed_credits_raw:
+            errors.append('Completed credits are required.')
+        else:
+            try:
+                completed_credits = int(completed_credits_raw)
+                if completed_credits < 0:
+                    errors.append('Completed credits cannot be negative.')
+            except ValueError:
+                errors.append('Completed credits must be a number.')
+
+        if not total_required_credits_raw:
+            errors.append('Total required credits to graduate are required.')
+        else:
+            try:
+                total_required_credits = int(total_required_credits_raw)
+                if total_required_credits <= 0:
+                    errors.append('Total required credits must be greater than zero.')
+            except ValueError:
+                errors.append('Total required credits must be a number.')
+
+        if not completed_semesters_raw:
+            errors.append('Number of completed ordinary semesters is required.')
+        else:
+            try:
+                completed_semesters = int(completed_semesters_raw)
+                if completed_semesters < 0:
+                    errors.append('Completed semesters cannot be negative.')
+            except ValueError:
+                errors.append('Completed semesters must be a number.')
+
+        if not errors:
+            ExchangeNomination.objects.create(
+                full_name=full_name,
+                student_email=student_email,
+                coordinator_name=coordinator_name,
+                coordinator_email=coordinator_email,
+                institution=institution,
+                year_of_study=year_of_study,
+                degree_level=degree_level,
+                semester_to_apply_for=semester_to_apply_for,
+                academic_year=academic_year,
+                completed_credits=completed_credits,
+                total_required_credits=total_required_credits,
+                major=major,
+                completed_semesters=completed_semesters,
+            )
+            success = True
+            form_data = default_form_data.copy()
+
+    context = {
+        'nomination_years': nomination_years,
+        'degree_levels': degree_levels,
+        'semester_choices': semester_choices,
+        'partner_universities': partner_universities,
+        'errors': errors,
+        'success': success,
+        'form_data': form_data,
+    }
+    return render(request, 'frontend/exchange_apply.html', context)
+
+
+def exchange_application(request):
+    submitted = False
+    if request.method == 'POST':
+        form = ExchangeApplicationForm(request.POST, request.FILES)
+        if form.is_valid():
+            form.save()
+            submitted = True
+            form = ExchangeApplicationForm()
+    else:
+        form = ExchangeApplicationForm()
+
+    context = {
+        'form': form,
+        'submitted': submitted,
+        'partner_count': PartnerUniversity.objects.count(),
+    }
+    return render(request, 'frontend/exchange_application.html', context)
+
+
+def user_is_exchange_officer(user):
+    return user.is_authenticated and (user.is_superuser or getattr(user, 'is_exchange_officer', False))
+
+
+@login_required
+def exchange_dashboard(request):
+    if not user_is_exchange_officer(request.user):
+        messages.error(request, 'You do not have permission to access the exchange dashboard.')
+        return redirect('portal')
+
+    user_agent = parse(request.META.get('HTTP_USER_AGENT', ''))
+    if user_agent.is_mobile or user_agent.is_tablet:
+        return render(request, 'frontend/desktop_only.html', {
+            'device_type': 'mobile device' if user_agent.is_mobile else 'tablet'
+        })
+
+    partner_form = PartnerUniversityForm()
+    if request.method == 'POST':
+        form_type = request.POST.get('form_type')
+
+        if form_type == 'add_partner':
+            partner_form = PartnerUniversityForm(request.POST, request.FILES)
+            if partner_form.is_valid():
+                partner_form.save()
+                messages.success(request, 'Partner university added successfully.')
+                return redirect('exchange_dashboard')
+            messages.error(request, 'Unable to add partner university. Please correct the errors below.')
+
+        elif form_type == 'delete_partner':
+            partner_id = request.POST.get('partner_id')
+            partner = get_object_or_404(PartnerUniversity, pk=partner_id)
+            if partner.logo:
+                partner.logo.delete(save=False)
+            partner.delete()
+            messages.success(request, 'Partner university deleted successfully.')
+            return redirect('exchange_dashboard')
+
+    active_nominations_qs = ExchangeNomination.objects.filter(is_archived=False).order_by('-submitted_at')
+    total_nominations = ExchangeNomination.objects.count()
+    active_nominations_count = active_nominations_qs.count()
+    archived_nominations_count = ExchangeNomination.objects.filter(is_archived=True).count()
+
+    completion_rates = []
+    for nomination in active_nominations_qs:
+        if nomination.total_required_credits:
+            ratio = nomination.completed_credits / nomination.total_required_credits
+            completion_rates.append(ratio * 100)
+
+    average_completion_rate = round(sum(completion_rates) / len(completion_rates), 1) if completion_rates else 0
+
+    semester_choices = dict(ExchangeNomination.SEMESTER_CHOICES)
+    degree_choices = dict(ExchangeNomination.DEGREE_LEVEL_CHOICES)
+
+    semester_breakdown = [
+        {
+            'code': row['semester_to_apply_for'],
+            'label': semester_choices.get(row['semester_to_apply_for'], row['semester_to_apply_for']),
+            'count': row['total'],
+        }
+        for row in active_nominations_qs.values('semester_to_apply_for').annotate(total=Count('id')).order_by('semester_to_apply_for')
+    ]
+
+    degree_breakdown = [
+        {
+            'code': row['degree_level'],
+            'label': degree_choices.get(row['degree_level'], row['degree_level']),
+            'count': row['total'],
+        }
+        for row in active_nominations_qs.values('degree_level').annotate(total=Count('id')).order_by('degree_level')
+    ]
+
+    partner_count = PartnerUniversity.objects.count()
+    recent_partners = PartnerUniversity.objects.order_by('-created_at')[:6]
+    partner_directory = PartnerUniversity.objects.order_by('name')
+
+    application_count = ExchangeApplication.objects.count()
+    recent_applications = ExchangeApplication.objects.order_by('-submitted_at')[:5]
+
+    context = {
+        'stats': {
+            'total_nominations': total_nominations,
+            'active_nominations': active_nominations_count,
+            'archived_nominations': archived_nominations_count,
+            'partner_count': partner_count,
+            'application_count': application_count,
+            'average_completion_rate': average_completion_rate,
+        },
+        'recent_nominations': list(active_nominations_qs[:5]),
+        'recent_partners': recent_partners,
+        'partner_directory': partner_directory,
+        'recent_applications': list(recent_applications),
+        'semester_breakdown': semester_breakdown,
+        'degree_breakdown': degree_breakdown,
+        'partner_form': partner_form,
+    }
+
+    return render(request, 'frontend/exchange_dashboard.html', context)
+
+
+@login_required
+def exchange_officer_dashboard(request):
+    if not user_is_exchange_officer(request.user):
+        return HttpResponseForbidden("You do not have permission to view this page.")
+
+    show_archived = request.GET.get('show') == 'archived'
+    nominations = ExchangeNomination.objects.filter(is_archived=show_archived).order_by('-submitted_at')
+    stats = {
+        'active': ExchangeNomination.objects.filter(is_archived=False).count(),
+        'archived': ExchangeNomination.objects.filter(is_archived=True).count(),
+    }
+
+    context = {
+        'nominations': nominations,
+        'show_archived': show_archived,
+        'stats': stats,
+    }
+    return render(request, 'frontend/exchange_officer_dashboard.html', context)
+
+
+@login_required
+def exchange_application_management(request):
+    if not user_is_exchange_officer(request.user):
+        return HttpResponseForbidden("You do not have permission to view this page.")
+
+    show_archived = request.GET.get('show') == 'archived'
+    applications = ExchangeApplication.objects.filter(is_archived=show_archived).select_related('home_institution').order_by('-submitted_at')
+    stats = {
+        'active': ExchangeApplication.objects.filter(is_archived=False).count(),
+        'archived': ExchangeApplication.objects.filter(is_archived=True).count(),
+    }
+
+    context = {
+        'applications': applications,
+        'show_archived': show_archived,
+        'stats': stats,
+    }
+    return render(request, 'frontend/exchange_application_management.html', context)
+
+
+@login_required
+@require_POST
+def toggle_exchange_nomination_archive(request, nomination_id):
+    if not user_is_exchange_officer(request.user):
+        return HttpResponseForbidden("You do not have permission to perform this action.")
+
+    nomination = get_object_or_404(ExchangeNomination, pk=nomination_id)
+    action = request.POST.get('action')
+
+    if action == 'archive':
+        nomination.is_archived = True
+        message_text = 'Nomination archived successfully.'
+    else:
+        nomination.is_archived = False
+        message_text = 'Nomination restored successfully.'
+
+    nomination.save(update_fields=['is_archived'])
+    messages.success(request, message_text)
+
+    next_url = request.POST.get('next') or reverse('exchange_officer_dashboard')
+    return redirect(next_url)
+
+
+@login_required
+@require_POST
+def toggle_exchange_application_archive(request, application_id):
+    if not user_is_exchange_officer(request.user):
+        return HttpResponseForbidden("You do not have permission to perform this action.")
+
+    application = get_object_or_404(ExchangeApplication, pk=application_id)
+    action = request.POST.get('action')
+
+    if action == 'archive':
+        application.is_archived = True
+        message_text = 'Application archived successfully.'
+    else:
+        application.is_archived = False
+        message_text = 'Application restored successfully.'
+
+    application.save(update_fields=['is_archived'])
+    messages.success(request, message_text)
+
+    next_url = request.POST.get('next') or reverse('exchange_application_management')
+    return redirect(next_url)
 
 
 def members(request):
@@ -1387,6 +1952,55 @@ def thread_settings(request):
     return render(request, 'frontend/thread_settings.html', context)
 
 
+@login_required
+def exchange_program_settings(request):
+    """
+    Manage exchange program visibility settings - accessible to logged-in users
+    """
+    from .models import ExchangeProgramSettings
+    
+    # Device detection - block mobile and tablet devices
+    user_agent = parse(request.META.get('HTTP_USER_AGENT', ''))
+    
+    if user_agent.is_mobile or user_agent.is_tablet:
+        return render(request, 'frontend/desktop_only.html', {
+            'device_type': 'mobile device' if user_agent.is_mobile else 'tablet'
+        })
+    
+    settings = ExchangeProgramSettings.get_settings()
+    message = None
+    error_message = None
+    
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        
+        if action == 'toggle_visibility':
+            settings.is_visible = not settings.is_visible
+            settings.updated_by = request.user
+            settings.save()
+            
+            status = "visible" if settings.is_visible else "hidden"
+            message = f"Exchange program has been {status}."
+            
+        elif action == 'update_message':
+            new_message = request.POST.get('coming_soon_message', '').strip()
+            if new_message:
+                settings.coming_soon_message = new_message
+                settings.updated_by = request.user
+                settings.save()
+                message = "Coming soon message updated successfully."
+            else:
+                error_message = "Coming soon message cannot be empty."
+    
+    context = {
+        'settings': settings,
+        'message': message,
+        'error_message': error_message,
+    }
+    
+    return render(request, 'frontend/exchange_program_settings.html', context)
+
+
 def contact(request):
     """
     Contact page with thread system - accessible to everyone (logged in or not)
@@ -2351,7 +2965,11 @@ def restore_database(request):
             from datetime import datetime
             import os
             import shutil
-            
+            import sqlite3
+            import tempfile
+            from django.core.management import call_command
+            from django.db import connections
+
             # Get the uploaded file
             uploaded_file = request.FILES.get('database_file')
             
@@ -2363,13 +2981,30 @@ def restore_database(request):
             if not uploaded_file.name.endswith(('.sqlite3', '.db', '.sqlite')):
                 messages.error(request, 'Invalid file type. Please upload a SQLite database file (.sqlite3, .db, or .sqlite).')
                 return render(request, 'frontend/restore_database.html')
-            
+
+            # Persist upload to a temporary file first so we can validate it
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.sqlite3') as tmp_file:
+                for chunk in uploaded_file.chunks():
+                    tmp_file.write(chunk)
+                tmp_path = tmp_file.name
+
+            try:
+                # Basic integrity check — ensure SQLite can read the file
+                conn = sqlite3.connect(tmp_path)
+                conn.execute('PRAGMA schema_version;')
+                conn.close()
+            except sqlite3.Error as exc:
+                os.unlink(tmp_path)
+                messages.error(request, f'Uploaded file is not a valid SQLite database: {exc}')
+                return render(request, 'frontend/restore_database.html')
+
             # Get the database path
             db_path = settings.DATABASES['default']['NAME']
             
             # Check if using SQLite
             if 'sqlite' not in settings.DATABASES['default']['ENGINE']:
                 messages.error(request, 'Database restore is only available for SQLite databases.')
+                os.unlink(tmp_path)
                 return render(request, 'frontend/restore_database.html')
             
             # Create a backup of the current database before restoring
@@ -2380,14 +3015,29 @@ def restore_database(request):
             backup_path = os.path.join(backup_dir, f'auto_backup_before_restore_{timestamp}.sqlite3')
             
             # Copy current database as backup
-            shutil.copy2(db_path, backup_path)
+            if os.path.exists(db_path):
+                shutil.copy2(db_path, backup_path)
             
-            # Write the uploaded file to the database location
-            with open(db_path, 'wb') as destination:
-                for chunk in uploaded_file.chunks():
-                    destination.write(chunk)
+            # Ensure no open connections keep the DB locked before swapping files
+            connections.close_all()
+
+            try:
+                shutil.copy2(tmp_path, db_path)
+            finally:
+                os.unlink(tmp_path)
+
+            # Run migrations to bring the restored DB up to date with current models
+            try:
+                call_command('migrate', interactive=False, verbosity=0)
+            except Exception as migrate_error:
+                # Attempt to roll back to backup if migrations fail
+                if os.path.exists(backup_path):
+                    shutil.copy2(backup_path, db_path)
+                connections.close_all()
+                messages.error(request, f'Restore failed while aligning schema: {migrate_error}')
+                return render(request, 'frontend/restore_database.html')
             
-            messages.success(request, f'Database restored successfully! A backup of the previous database was saved.')
+            messages.success(request, 'Database restored successfully! A backup of the previous database was saved.')
             messages.info(request, f'Backup location: {backup_path}')
             
             # Redirect to login (user will need to log in again with restored credentials)

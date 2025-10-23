@@ -1,0 +1,183 @@
+{% extends 'frontend/layout.html' %}
+{% load static %}
+
+{% block title %}Exchange Program - Coming Soon{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <div class="coming-soon-card card shadow-lg border-0">
+                <div class="card-body text-center p-5">
+                    <!-- Icon/Illustration -->
+                    <div class="mb-4">
+                        <div class="icon-container">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="#667eea" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 16v-2l-8-5V4.5a2.5 2.5 0 0 0-5 0V9L0 14v2l8-2.5V17l-2 1.5V20l3-1 3 1v-1.5L10 17v-3.5l11 2.5z"/>
+                            </svg>
+                        </div>
+                    </div>
+
+                    <!-- Heading -->
+                    <h1 class="display-4 mb-3" style="color: #667eea; font-weight: bold;">
+                        Exchange Program
+                    </h1>
+                    
+                    <h2 class="text-warning mb-4">
+                        <i class="fas fa-clock"></i> Coming Soon
+                    </h2>
+
+                    <!-- Message -->
+                    <div class="message-box mb-4">
+                        <p class="lead text-muted">
+                            {{ message }}
+                        </p>
+                    </div>
+
+                    <!-- Info Cards -->
+                    <div class="row mt-5 mb-4">
+                        <div class="col-md-4 mb-3">
+                            <div class="info-card p-4 h-100">
+                                <i class="fas fa-globe-americas fa-3x mb-3" style="color: #667eea;"></i>
+                                <h5>Study Abroad</h5>
+                                <p class="small text-muted">Experience education at prestigious universities worldwide</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="info-card p-4 h-100">
+                                <i class="fas fa-users fa-3x mb-3" style="color: #764ba2;"></i>
+                                <h5>Cultural Exchange</h5>
+                                <p class="small text-muted">Immerse yourself in new cultures and build global networks</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="info-card p-4 h-100">
+                                <i class="fas fa-graduation-cap fa-3x mb-3" style="color: #667eea;"></i>
+                                <h5>Academic Growth</h5>
+                                <p class="small text-muted">Expand your horizons with international academic experiences</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- CTA Section -->
+                    <div class="alert alert-info border-info mt-4">
+                        <h5 class="alert-heading">
+                            <i class="fas fa-bell"></i> Stay Updated
+                        </h5>
+                        <hr>
+                        <p class="mb-0">
+                            Follow us on social media and check back regularly for updates on when the exchange program applications will open.
+                        </p>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-center mt-4">
+                        <a href="{% url 'home' %}" class="btn btn-primary btn-lg">
+                            <i class="fas fa-home"></i> Return to Home
+                        </a>
+                        <a href="{% url 'contact' %}" class="btn btn-outline-secondary btn-lg">
+                            <i class="fas fa-envelope"></i> Contact Us
+                        </a>
+                    </div>
+
+                    <!-- Footer Note -->
+                    <div class="mt-5 pt-4 border-top">
+                        <p class="text-muted small mb-0">
+                            <i class="fas fa-info-circle"></i> 
+                            For any inquiries about the exchange program, please <a href="{% url 'contact' %}">contact us</a>.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.coming-soon-card {
+    border-radius: 20px;
+    animation: fadeInUp 0.8s ease-out;
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(40px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.icon-container {
+    display: inline-block;
+    animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-20px);
+    }
+}
+
+.info-card {
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s;
+}
+
+.info-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 12px rgba(0, 0, 0, 0.15);
+}
+
+.message-box {
+    padding: 20px;
+    background: rgba(102, 126, 234, 0.05);
+    border-radius: 15px;
+    border-left: 4px solid #667eea;
+}
+
+.btn {
+    transition: all 0.3s;
+}
+
+.btn:hover {
+    transform: scale(1.05);
+}
+
+h1.display-4 {
+    animation: slideInDown 0.8s ease-out;
+}
+
+@keyframes slideInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+h2 {
+    animation: fadeIn 1s ease-out 0.3s both;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+</style>
+{% endblock %}

@@ -1,0 +1,337 @@
+{% extends 'frontend/layout.html' %}
+{% load static %}
+
+{% block title %}Exchange at Kuwait University - Dean's List Council{% endblock %}
+{% block content %}
+<style>
+    .exchange-hero {
+        background: linear-gradient(135deg, #e0f3ff 0%, #c5e4ff 100%);
+        color: #083d77;
+        padding: 140px 0 80px 0;
+    }
+
+    .exchange-card {
+        background: #ffffff;
+        border-radius: 16px;
+        box-shadow: 0 12px 30px rgba(8, 61, 119, 0.12);
+        border: 1px solid #b7d8f8;
+    }
+
+    .exchange-section-title {
+        color: #0d4d8c;
+        font-weight: 700;
+    }
+
+    .exchange-badge {
+        display: inline-block;
+        background: rgba(13, 77, 140, 0.12);
+        color: #0d4d8c;
+        border-radius: 999px;
+        padding: 6px 16px;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+
+    .exchange-form label {
+        font-weight: 600;
+        color: #0f3f6d;
+    }
+
+    .exchange-form .form-control,
+    .exchange-form .form-select {
+        border-radius: 10px;
+        border: 1px solid #a7c7eb;
+        box-shadow: none;
+    }
+
+    .exchange-form .form-control:focus,
+    .exchange-form .form-select:focus {
+        border-color: #0d6efd;
+        box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.08);
+    }
+
+    .exchange-cta {
+        background: #0d6efd;
+        border: none;
+        border-radius: 999px;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+    }
+
+    .exchange-cta:hover {
+        background: #0b5ed7;
+    }
+
+    .info-pill {
+        background: rgba(13, 77, 140, 0.08);
+        color: #0d4d8c;
+        border-radius: 12px;
+        padding: 14px 18px;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .info-pill i {
+        font-size: 1.25rem;
+        color: #0b5ed7;
+    }
+
+    .alert-exchange {
+        background: rgba(13, 77, 140, 0.15);
+        border: 1px solid rgba(13, 77, 140, 0.45);
+        color: #06305a;
+    }
+
+    .partner-grid {
+        display: grid;
+        gap: 24px;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    }
+
+    .partner-card {
+        background: #ffffff;
+        border-radius: 16px;
+        border: 1px solid rgba(8, 61, 119, 0.12);
+        padding: 24px 18px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        box-shadow: 0 10px 24px rgba(8, 61, 119, 0.08);
+    }
+
+    .partner-card:hover {
+        transform: translateY(-8px) scale(1.02);
+        box-shadow: 0 18px 32px rgba(8, 61, 119, 0.18);
+    }
+
+    .partner-card img {
+        max-width: 140px;
+        max-height: 80px;
+        object-fit: contain;
+        margin-bottom: 16px;
+        filter: drop-shadow(0 4px 6px rgba(8, 61, 119, 0.18));
+    }
+
+    .partner-card h3 {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #0d4d8c;
+        margin: 0;
+        text-align: center;
+    }
+
+    @media (max-width: 767px) {
+        .exchange-hero {
+            padding-top: 120px;
+        }
+        .partner-card {
+            padding: 20px 16px;
+        }
+    }
+</style>
+
+<section class="exchange-hero">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-lg-7 mb-4 mb-lg-0">
+                <span class="exchange-badge mb-3"><i class="fas fa-globe-americas me-2"></i>Kuwait University Incoming Exchange</span>
+                <h1 class="display-5 fw-bold">Experience Kuwait University through Our Exchange Partnerships</h1>
+                <p class="lead" style="color: #145289;">We welcome nominations from partner universities for students eager to study at the College of Business Administration. Explore our nomination process below while we prepare complete application guidance.</p>
+            </div>
+            <div class="col-lg-5 text-center">
+                <div style="display: inline-flex; align-items: center; justify-content: center; width: 320px; height: 320px; border-radius: 50%; background: rgba(8, 61, 119, 0.12);">
+                    <i class="fas fa-plane-departure" style="font-size: 5rem; color: #0b5ed7;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="py-5" style="background: #f0f7ff;">
+    <div class="container">
+        <div class="row g-4">
+            <div class="col-lg-7">
+                <div class="exchange-card p-4 p-md-5">
+                    <h2 class="exchange-section-title mb-3">Nominate a Student</h2>
+                    <p class="mb-2" style="color: #275f9b;">Partner institutions can submit nominations using the form below. Please provide accurate academic details to help us prepare for the student's arrival.</p>
+
+                    <div class="alert alert-danger" role="alert" style="border-radius: 12px; border-color: rgba(220,53,69,0.35);">
+                        <strong>Important:</strong> This nomination form is exclusively for students from KU partner universities who plan to study at Kuwait University. KU students interested in studying abroad should contact the Exchange Program Office in CBA for outbound opportunities.
+                    </div>
+
+                    {% if success %}
+                    <div class="alert alert-success alert-exchange" role="alert">
+                        <i class="fas fa-check-circle me-2"></i>Thank you! The nomination has been received. Our exchange coordinator will reach out with next steps.
+                    </div>
+                    {% endif %}
+
+                    {% if errors %}
+                    <div class="alert alert-danger" role="alert" style="border-radius: 12px; border-color: #d9534f;">
+                        <strong>Please review the following:</strong>
+                        <ul class="mb-0 mt-2">
+                            {% for error in errors %}
+                            <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+
+                    <form method="post" action="{% url 'exchange_program' %}" class="exchange-form mt-4">
+                        {% csrf_token %}
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label for="full_name" class="form-label">Full Name</label>
+                                <input type="text" class="form-control" id="full_name" name="full_name" value="{{ form_data.full_name|default:'' }}" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="student_email" class="form-label">Student Email</label>
+                                <input type="email" class="form-control" id="student_email" name="student_email" value="{{ form_data.student_email|default:'' }}" required>
+                            </div>
+                            <div class="col-md-12">
+                                <label for="institution" class="form-label">Home Institution</label>
+                                <select class="form-select" id="institution" name="institution" required>
+                                    <option value="">Select home institution</option>
+                                    {% for partner in partner_universities %}
+                                    <option value="{{ partner.name }}" {% if form_data.institution == partner.name %}selected{% endif %}>{{ partner.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="coordinator_name" class="form-label">Exchange Coordinator Name</label>
+                                <input type="text" class="form-control" id="coordinator_name" name="coordinator_name" value="{{ form_data.coordinator_name|default:'' }}" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="coordinator_email" class="form-label">Exchange Coordinator Email</label>
+                                <input type="email" class="form-control" id="coordinator_email" name="coordinator_email" value="{{ form_data.coordinator_email|default:'' }}" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="year_of_study" class="form-label">Year of Study</label>
+                                <select class="form-select" id="year_of_study" name="year_of_study" required>
+                                    <option value="">Select year</option>
+                                    {% for key, label in nomination_years %}
+                                    <option value="{{ key }}" {% if form_data.year_of_study == key %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="degree_level" class="form-label">Program Level</label>
+                                <select class="form-select" id="degree_level" name="degree_level" required>
+                                    <option value="">Select level</option>
+                                    {% for key, label in degree_levels %}
+                                    <option value="{{ key }}" {% if form_data.degree_level == key %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="semester_to_apply_for" class="form-label">Semester to Apply For</label>
+                                <select class="form-select" id="semester_to_apply_for" name="semester_to_apply_for" required>
+                                    <option value="">Select semester</option>
+                                    {% for key, label in semester_choices %}
+                                    <option value="{{ key }}" {% if form_data.semester_to_apply_for == key %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="academic_year" class="form-label">Academic Year</label>
+                                <input type="text" class="form-control" id="academic_year" name="academic_year" pattern="\d{4}/\d{4}" placeholder="2025/2026" value="{{ form_data.academic_year|default:'' }}" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="completed_credits" class="form-label">Completed Credits</label>
+                                <input type="number" class="form-control" id="completed_credits" name="completed_credits" min="0" value="{{ form_data.completed_credits|default:'' }}" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="total_required_credits" class="form-label">Total Credits Required to Graduate</label>
+                                <input type="number" class="form-control" id="total_required_credits" name="total_required_credits" min="1" value="{{ form_data.total_required_credits|default:'' }}" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="major" class="form-label">Major at Home Institution</label>
+                                <input type="text" class="form-control" id="major" name="major" value="{{ form_data.major|default:'' }}" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="completed_semesters" class="form-label">Completed Ordinary Semesters</label>
+                                <input type="number" class="form-control" id="completed_semesters" name="completed_semesters" min="0" value="{{ form_data.completed_semesters|default:'' }}" required>
+                            </div>
+                        </div>
+                        <div class="d-grid mt-4">
+                            <button type="submit" class="btn btn-primary exchange-cta py-3"><i class="fas fa-paper-plane me-2"></i>Submit Nomination</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            <div class="col-lg-5">
+                <div class="exchange-card p-4 p-md-5 mb-4">
+                    <h3 class="exchange-section-title mb-3">Nomination Timeline</h3>
+                    <div class="info-pill"><i class="fas fa-calendar-week"></i><span>Fall semester nominations close on June 1st.</span></div>
+                    <div class="info-pill"><i class="fas fa-calendar-alt"></i><span>Spring semester nominations close on November 1st.</span></div>
+                    <div class="info-pill"><i class="fas fa-handshake"></i><span>Summer exchange placements are not available.</span></div>
+                </div>
+
+                <div class="exchange-card p-4 p-md-5">
+                    <h3 class="exchange-section-title mb-3">Student Applications</h3>
+                    <p style="color: #275f9b;">Detailed application requirements and document checklists are being finalized. Once nominations are confirmed, we will invite nominated students to complete their individual application.</p>
+                    <div class="info-pill"><i class="fas fa-envelope-open-text"></i><span>Stay tuned for our application guide launching soon.</span></div>
+                    <div class="info-pill"><i class="fas fa-file-alt"></i><span>Required documents include transcripts, English proficiency proof, and a statement of purpose.</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="py-5 bg-white">
+    <div class="container">
+        <div class="row mb-4">
+            <div class="col-lg-8 mx-auto text-center">
+                <span class="exchange-badge mb-3"><i class="fas fa-handshake-angle me-2"></i>Our Exchange Network</span>
+                <h2 class="exchange-section-title mb-2">Partner Universities</h2>
+                <p style="color: #275f9b;">We collaborate with distinguished institutions around the globe. Their students bring fresh perspectives to Kuwait University and return home with lasting connections.</p>
+            </div>
+        </div>
+        {% if partner_universities %}
+        <div class="partner-grid">
+            {% for partner in partner_universities %}
+            <div class="partner-card">
+                {% if partner.logo %}
+                    <img src="{{ partner.logo.url }}" alt="{{ partner.name }} logo">
+                {% else %}
+                    <div class="d-flex align-items-center justify-content-center" style="width: 120px; height: 60px; background: rgba(13, 77, 140, 0.08); border-radius: 12px; color: #0d4d8c; font-weight: 600;">
+                        {{ partner.name|slice:":12" }}
+                    </div>
+                {% endif %}
+                <h3>{{ partner.name }}</h3>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-5" style="background: #f0f7ff; border-radius: 18px; border: 1px dashed rgba(13, 77, 140, 0.25);">
+            <i class="fas fa-globe-europe fa-2x mb-3" style="color: #0b5ed7;"></i>
+            <p class="mb-0" style="color: #275f9b;">Partner universities will appear here once added through the dashboard.</p>
+        </div>
+        {% endif %}
+    </div>
+</section>
+
+<section class="py-5">
+    <div class="container">
+        <div class="exchange-card p-4 p-md-5">
+            <div class="row align-items-center g-4">
+                <div class="col-lg-8">
+                    <h2 class="exchange-section-title mb-3">Why Study Business at KU?</h2>
+                    <p class="mb-3" style="color: #275f9b;">The College of Business Administration offers AACSB-accredited programs, vibrant student organizations, and access to the Gulf region's dynamic business landscape.</p>
+                    <ul class="mb-0" style="color: #0f3f6d;">
+                        <li class="mb-2"><i class="fas fa-check-circle me-2 text-primary"></i>Courses taught in English with regional business focus</li>
+                        <li class="mb-2"><i class="fas fa-check-circle me-2 text-primary"></i>Dedicated support for incoming exchange students</li>
+                        <li><i class="fas fa-check-circle me-2 text-primary"></i>Opportunities to engage with Kuwait-based companies and alumni</li>
+                    </ul>
+                </div>
+                <div class="col-lg-4 text-center">
+                    <a href="mailto:dlc-exchange@ku.edu.kw" class="btn btn-outline-primary" style="border-radius: 999px; padding: 12px 32px; border-color: #0d6efd; color: #0d6efd;"><i class="fas fa-envelope me-2"></i>Contact Exchange Office</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

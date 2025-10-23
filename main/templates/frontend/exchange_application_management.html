@@ -1,0 +1,131 @@
+{% extends 'frontend/layout.html' %}
+{% load static %}
+
+{% block title %}Exchange Applications Management{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top: 140px; padding-bottom: 60px;">
+    <div class="row mb-4 align-items-center">
+        <div class="col">
+            <h1 class="fw-bold" style="color:#4a2e5f;">Exchange Applications</h1>
+            <p class="text-muted mb-0">Review and manage all incoming exchange student applications submitted through the public portal.</p>
+        </div>
+        <div class="col-auto d-flex flex-wrap align-items-center gap-2">
+            <a class="btn btn-outline-secondary" href="{% url 'exchange_dashboard' %}">
+                <i class="fas fa-arrow-left me-1"></i>Back to Dashboard
+            </a>
+            <div class="btn-group" role="group" aria-label="Application filters">
+                <a class="btn {% if not show_archived %}btn-primary{% else %}btn-outline-primary{% endif %}" href="{% url 'exchange_application_management' %}">
+                    Active <span class="badge bg-light text-primary ms-1">{{ stats.active }}</span>
+                </a>
+                <a class="btn {% if show_archived %}btn-primary{% else %}btn-outline-primary{% endif %}" href="{% url 'exchange_application_management' %}?show=archived">
+                    Archived <span class="badge bg-light text-primary ms-1">{{ stats.archived }}</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    {% if messages %}
+    <div class="row">
+        <div class="col">
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="card shadow-sm border-0">
+        <div class="card-body">
+            {% if applications %}
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th scope="col">Applicant</th>
+                            <th scope="col">Academic Details</th>
+                            <th scope="col">Passport</th>
+                            <th scope="col">Documents</th>
+                            <th scope="col">Coordinator</th>
+                            <th scope="col">Submitted</th>
+                            <th scope="col" class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for app in applications %}
+                        <tr class="{% if app.is_archived %}table-secondary{% endif %}">
+                            <td>
+                                <div class="fw-semibold">{{ app.first_name }} {{ app.last_name }}</div>
+                                <div class="text-muted small">DOB: {{ app.date_of_birth|date:'M j, Y' }}</div>
+                                <div class="small"><a href="mailto:{{ app.email }}" class="link-primary">{{ app.email }}</a></div>
+                                <div class="text-muted small">Gender: {{ app.get_gender_display }}</div>
+                            </td>
+                            <td>
+                                <div class="fw-semibold">{{ app.home_institution.name }}</div>
+                                <div class="text-muted small">Major: {{ app.home_major }}</div>
+                                <div class="text-muted small">Program: {{ app.get_program_level_display }}</div>
+                                <div class="text-muted small">Term: {{ app.get_exchange_semester_display }} {{ app.exchange_academic_year }}</div>
+                                <div class="text-muted small">Credits Completed: {{ app.completed_credits }}</div>
+                            </td>
+                            <td>
+                                <div class="fw-semibold">Passport #: {{ app.passport_number }}</div>
+                                <div class="text-muted small">Expiry: {{ app.passport_expiry_date|date:'M j, Y' }}</div>
+                                <div class="text-muted small">Accommodation: {% if app.accommodation_needed %}Requested{% else %}No{% endif %}</div>
+                                <div class="text-muted small">Criminal Record: {% if app.has_criminal_record %}Yes{% else %}No{% endif %}</div>
+                            </td>
+                            <td>
+                                <div class="d-flex flex-column gap-1">
+                                    <a class="btn btn-sm btn-outline-primary" href="{{ app.english_proficiency_document.url }}" target="_blank" rel="noopener noreferrer">
+                                        <i class="fas fa-file-pdf me-1"></i>English Proof
+                                    </a>
+                                    <a class="btn btn-sm btn-outline-primary" href="{{ app.transcript_document.url }}" target="_blank" rel="noopener noreferrer">
+                                        <i class="fas fa-file-pdf me-1"></i>Transcript
+                                    </a>
+                                    <a class="btn btn-sm btn-outline-primary" href="{{ app.passport_copy.url }}" target="_blank" rel="noopener noreferrer">
+                                        <i class="fas fa-passport me-1"></i>Passport Copy
+                                    </a>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="fw-semibold">{{ app.coordinator_name }}</div>
+                                <div class="small"><a href="mailto:{{ app.coordinator_email }}" class="link-secondary">{{ app.coordinator_email }}</a></div>
+                            </td>
+                            <td>
+                                <div class="fw-semibold">{{ app.submitted_at|date:'M j, Y' }}</div>
+                                <div class="text-muted small">{{ app.submitted_at|date:'H:i' }}</div>
+                            </td>
+                            <td class="text-end">
+                                <form method="post" action="{% url 'toggle_exchange_application_archive' app.id %}">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                    {% if app.is_archived %}
+                                        <input type="hidden" name="action" value="restore">
+                                        <button class="btn btn-outline-success btn-sm" type="submit">
+                                            <i class="fas fa-undo me-1"></i>Restore
+                                        </button>
+                                    {% else %}
+                                        <input type="hidden" name="action" value="archive">
+                                        <button class="btn btn-outline-secondary btn-sm" type="submit">
+                                            <i class="fas fa-archive me-1"></i>Archive
+                                        </button>
+                                    {% endif %}
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5 bg-light rounded border">
+                <i class="fas fa-folder-open fa-2x mb-3 text-muted"></i>
+                <p class="mb-0 text-muted">No exchange applications {% if show_archived %}are archived yet{% else %}await review{% endif %}.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
