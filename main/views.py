@@ -3398,23 +3398,32 @@ def restore_database(request):
                     
                     if semester and year:
                         # Check if dean list with same semester/year already exists
-                        if not DeanList.objects.filter(semester=semester, year=year).exists():
-                            DeanList.objects.create(
-                                semester=semester,
-                                year=year,
-                                excel_file=row.get('excel_file', ''),
-                                created_at=row.get('created_at')
-                            )
+                        dean_list, created = DeanList.objects.get_or_create(
+                            semester=semester,
+                            year=year,
+                            defaults={
+                                'excel_file': row.get('excel_file', ''),
+                                'created_at': row.get('created_at')
+                            }
+                        )
+                        if created:
                             stats['dean_lists']['added'] += 1
                         else:
                             stats['dean_lists']['skipped'] += 1
+                    else:
+                        logger.warning(f"Skipping dean list with missing semester/year: {row}")
+                        stats['dean_lists']['skipped'] += 1
             except Exception as e:
                 messages.warning(request, f'Dean list import issue: {str(e)}')
+                logger.error(f"Dean list import error: {e}")
             
             # Import Dean List Students
             try:
                 sqlite_cursor.execute("SELECT * FROM main_deanliststudent")
-                for row in sqlite_cursor.fetchall():
+                dean_student_rows = sqlite_cursor.fetchall()
+                logger.info(f"Found {len(dean_student_rows)} dean list students to import")
+                
+                for row in dean_student_rows:
                     row = dict(row)  # Convert to dict
                     dean_list_id = row.get('dean_list_id')
                     
@@ -3425,10 +3434,15 @@ def restore_database(request):
                         
                         if dean_list_data:
                             dean_list_data = dict(dean_list_data)
+                            semester_val = dean_list_data['semester']
+                            year_val = dean_list_data['year']
+                            
+                            logger.info(f"Looking for DeanList with semester={semester_val}, year={year_val}")
+                            
                             # Find DeanList in target by semester + year
                             dean_list = DeanList.objects.filter(
-                                semester=dean_list_data['semester'],
-                                year=dean_list_data['year']
+                                semester=semester_val,
+                                year=year_val
                             ).first()
                             
                             if dean_list:
@@ -3455,8 +3469,20 @@ def restore_database(request):
                                     stats['dean_students']['added'] += 1
                                 else:
                                     stats['dean_students']['skipped'] += 1
+                            else:
+                                # Dean list doesn't exist in target
+                                logger.warning(f"DeanList not found for semester={semester_val}, year={year_val}")
+                                stats['dean_students']['skipped'] += 1
+                        else:
+                            # Can't find dean list in source DB
+                            logger.warning(f"Dean list ID {dean_list_id} not found in source database")
+                            stats['dean_students']['skipped'] += 1
+                    else:
+                        # No dean_list_id
+                        stats['dean_students']['skipped'] += 1
             except Exception as e:
                 messages.warning(request, f'Dean list student import issue: {str(e)}')
+                logger.error(f"Dean list student import error: {e}", exc_info=True)
             
             # Import Courses
             try:
