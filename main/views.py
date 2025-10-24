@@ -3032,6 +3032,7 @@ def restore_database(request):
     
     if request.method == 'POST':
         tmp_path = None
+        sqlite_conn = None
         try:
             import os
             import sqlite3
@@ -3425,11 +3426,21 @@ def restore_database(request):
             except:
                 pass
             
+            # Close SQLite connection if open
+            if sqlite_conn:
+                try:
+                    sqlite_conn.close()
+                    logger.info("SQLite connection closed")
+                except:
+                    pass
+            
             # Clean up temp file
             if tmp_path and os.path.exists(tmp_path):
                 try:
                     os.unlink(tmp_path)
-                except:
+                    logger.info(f"Temp file deleted: {tmp_path}")
+                except Exception as cleanup_error:
+                    logger.warning(f"Could not delete temp file: {cleanup_error}")
                     pass
             
             return render(request, 'frontend/restore_database.html')
