@@ -15,6 +15,8 @@
     <div class="info-box">
         <h3>⚡ Important Information</h3>
         <ul>
+            <li><strong>Current Database:</strong> <span class="db-badge">{{ current_db }}</span></li>
+            <li><strong>Automatic Conversion:</strong> SQLite files can be automatically converted to PostgreSQL!</li>
             <li><strong>Automatic Backup:</strong> Your current database will be automatically backed up before restoration</li>
             <li><strong>Complete Replacement:</strong> All current data will be replaced with the uploaded database</li>
             <li><strong>Re-login Required:</strong> You will need to log in again after restoration</li>
@@ -82,12 +84,18 @@
         <ol>
             <li><strong>Download Backup First:</strong> Always download a backup before restoring</li>
             <li><strong>Select File:</strong> Choose your database backup file (SQLite or PostgreSQL format)</li>
+            <li><strong>Automatic Conversion:</strong> If uploading SQLite to PostgreSQL, conversion happens automatically</li>
             <li><strong>Confirm:</strong> Check the confirmation box</li>
             <li><strong>Restore:</strong> Click "Restore Database"</li>
             <li><strong>Log In:</strong> Use credentials from the restored database</li>
         </ol>
         <div style="margin-top: 15px; padding: 10px; background: #e8f4f8; border-left: 4px solid #3498db; border-radius: 4px;">
-            <strong>Note:</strong> The system automatically detects your database type (SQLite/PostgreSQL) and uses the appropriate restore method.
+            <strong>✨ Supported Conversions:</strong><br>
+            • SQLite → SQLite (direct copy)<br>
+            • SQLite → PostgreSQL (automatic conversion via Django)<br>
+            • PostgreSQL → PostgreSQL (pg_restore)<br>
+            <br>
+            <strong>Note:</strong> The system automatically detects file types and performs the appropriate restore/conversion.
         </div>
     </div>
 </div>
@@ -160,6 +168,17 @@
     border-radius: 4px;
     font-size: 13px;
     color: #e74c3c;
+}
+
+.db-badge {
+    background: linear-gradient(135deg, #3498db, #2980b9);
+    color: white;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    display: inline-block;
+    box-shadow: 0 2px 5px rgba(52, 152, 219, 0.3);
 }
 
 .help-box ol {

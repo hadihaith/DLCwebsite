@@ -64,23 +64,222 @@
                     </div>
 
                     <!-- PDF preview and modal viewer (same approach as student_guide) -->
-                    <div class="pdf-preview-card text-center mb-4" style="max-width:920px; margin:0 auto;">
+                    <div class="pdf-preview-card text-center mb-4 dlc-timeline-card">
                         <h3 class="h5 mb-2">DLC Timeline (2000 - 2025)</h3>
-                        <div style="background: #fff; padding:16px; border-radius:10px; box-shadow:0 6px 18px rgba(0,0,0,0.12); display:flex; gap:16px; align-items:center;">
-                            <div style="flex:1; min-width:200px;">
-                                <img src="{% static 'frontend/assets/img/reach.png' %}" alt="DLC timeline" style="width:100%; height:180px; object-fit:cover; border-radius:6px;">
+                        <div class="timeline-card-inner">
+                            <div class="timeline-image">
+                                <img src="{% static 'frontend/assets/img/reach.png' %}" alt="DLC timeline">
                             </div>
-                            <div style="flex:2; text-align:left;">
-                                <p style="margin:0 0 8px; color:#333; font-weight:600;">DLC Timeline (2000 - 2025)</p>
-                                <p style="margin:0 0 12px; color:#666;">Scroll through the timeline PDF to review milestones, documents and important events for DLC across the years.</p>
-                                <div style="display:flex; gap:8px;">
-                                    <a href="https://drive.google.com/file/d/1uVeqFy0HIKR4Ox-FI9iCUPTdTfHS7k4n/view?usp=sharing" target="_blank" class="btn btn-download" style="background:linear-gradient(135deg,#007bff,#6f42c1); color:#fff; padding:8px 14px; border-radius:6px; text-decoration:none;">Open in new tab</a>
-                                    <button data-pdf-url="https://drive.google.com/file/d/1uVeqFy0HIKR4Ox-FI9iCUPTdTfHS7k4n/preview" data-pdf-title="DLC Timeline (2000 - 2025)" class="btn btn-view pdf-open-btn" style="background:linear-gradient(135deg,#28a745,#20c997); color:#fff; padding:8px 14px; border-radius:6px; border:none; cursor:pointer;">View</button>
-                                    <a href="https://drive.google.com/file/d/1uVeqFy0HIKR4Ox-FI9iCUPTdTfHS7k4n/view?usp=sharing" target="_blank" class="btn btn-download" style="background:linear-gradient(135deg,#6c757d,#495057); color:#fff; padding:8px 14px; border-radius:6px; text-decoration:none;">Download</a>
+                            <div class="timeline-content">
+                                <p class="timeline-title">DLC Timeline (2000 - 2025)</p>
+                                <p class="timeline-description">Scroll through the timeline PDF to review milestones, documents and important events for DLC across the years.</p>
+                                <div class="timeline-buttons">
+                                    <a href="https://drive.google.com/file/d/1uVeqFy0HIKR4Ox-FI9iCUPTdTfHS7k4n/view?usp=sharing" target="_blank" class="btn btn-download btn-timeline btn-timeline-primary">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                            <path d="M8.636 3.5a.5.5 0 0 0-.5-.5H1.5A1.5 1.5 0 0 0 0 4.5v10A1.5 1.5 0 0 0 1.5 16h10a1.5 1.5 0 0 0 1.5-1.5V7.864a.5.5 0 0 0-1 0V14.5a.5.5 0 0 1-.5.5h-10a.5.5 0 0 1-.5-.5v-10a.5.5 0 0 1 .5-.5h6.636a.5.5 0 0 0 .5-.5z"/>
+                                            <path d="M16 .5a.5.5 0 0 0-.5-.5h-5a.5.5 0 0 0 0 1h3.793L6.146 9.146a.5.5 0 1 0 .708.708L15 1.707V5.5a.5.5 0 0 0 1 0v-5z"/>
+                                        </svg>
+                                        Open
+                                    </a>
+                                    <button data-pdf-url="https://drive.google.com/file/d/1uVeqFy0HIKR4Ox-FI9iCUPTdTfHS7k4n/preview" data-pdf-title="DLC Timeline (2000 - 2025)" class="btn btn-view pdf-open-btn btn-timeline btn-timeline-success">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                            <path d="M10.5 8a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0z"/>
+                                            <path d="M0 8s3-5.5 8-5.5S16 8 16 8s-3 5.5-8 5.5S0 8 0 8zm8 3.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/>
+                                        </svg>
+                                        View
+                                    </button>
+                                    <a href="https://drive.google.com/file/d/1uVeqFy0HIKR4Ox-FI9iCUPTdTfHS7k4n/view?usp=sharing" target="_blank" class="btn btn-download btn-timeline btn-timeline-secondary">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                            <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+                                            <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
+                                        </svg>
+                                        Download
+                                    </a>
                                 </div>
                             </div>
                         </div>
                     </div>
+                    
+                    <style>
+                    .dlc-timeline-card {
+                        max-width: 920px;
+                        margin: 0 auto;
+                    }
+                    
+                    .timeline-card-inner {
+                        background: #fff;
+                        padding: 20px;
+                        border-radius: 12px;
+                        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+                        display: flex;
+                        gap: 20px;
+                        align-items: center;
+                    }
+                    
+                    .timeline-image {
+                        flex: 1;
+                        min-width: 200px;
+                    }
+                    
+                    .timeline-image img {
+                        width: 100%;
+                        height: 180px;
+                        object-fit: cover;
+                        border-radius: 8px;
+                        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+                    }
+                    
+                    .timeline-content {
+                        flex: 2;
+                        text-align: left;
+                    }
+                    
+                    .timeline-title {
+                        margin: 0 0 10px;
+                        color: #333;
+                        font-weight: 600;
+                        font-size: 1.1rem;
+                    }
+                    
+                    .timeline-description {
+                        margin: 0 0 16px;
+                        color: #666;
+                        line-height: 1.6;
+                        font-size: 0.95rem;
+                    }
+                    
+                    .timeline-buttons {
+                        display: flex;
+                        gap: 10px;
+                        flex-wrap: wrap;
+                    }
+                    
+                    .btn-timeline {
+                        color: #fff;
+                        padding: 10px 18px;
+                        border-radius: 8px;
+                        text-decoration: none;
+                        border: none;
+                        cursor: pointer;
+                        font-weight: 500;
+                        font-size: 0.9rem;
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 6px;
+                        transition: all 0.3s ease;
+                        white-space: nowrap;
+                    }
+                    
+                    .btn-timeline svg {
+                        flex-shrink: 0;
+                    }
+                    
+                    .btn-timeline-primary {
+                        background: linear-gradient(135deg, #007bff, #6f42c1);
+                    }
+                    
+                    .btn-timeline-primary:hover {
+                        background: linear-gradient(135deg, #0056b3, #5a32a3);
+                        transform: translateY(-2px);
+                        box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+                    }
+                    
+                    .btn-timeline-success {
+                        background: linear-gradient(135deg, #28a745, #20c997);
+                    }
+                    
+                    .btn-timeline-success:hover {
+                        background: linear-gradient(135deg, #218838, #1a9e7a);
+                        transform: translateY(-2px);
+                        box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+                    }
+                    
+                    .btn-timeline-secondary {
+                        background: linear-gradient(135deg, #6c757d, #495057);
+                    }
+                    
+                    .btn-timeline-secondary:hover {
+                        background: linear-gradient(135deg, #545b62, #383d41);
+                        transform: translateY(-2px);
+                        box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
+                    }
+                    
+                    /* Mobile responsive styles */
+                    @media (max-width: 768px) {
+                        .dlc-timeline-card {
+                            padding: 0 10px;
+                        }
+                        
+                        .timeline-card-inner {
+                            flex-direction: column;
+                            padding: 16px;
+                            gap: 16px;
+                        }
+                        
+                        .timeline-image {
+                            width: 100%;
+                            min-width: unset;
+                        }
+                        
+                        .timeline-image img {
+                            height: 200px;
+                        }
+                        
+                        .timeline-content {
+                            width: 100%;
+                            text-align: center;
+                        }
+                        
+                        .timeline-title {
+                            font-size: 1rem;
+                            margin-bottom: 8px;
+                        }
+                        
+                        .timeline-description {
+                            font-size: 0.9rem;
+                            margin-bottom: 14px;
+                        }
+                        
+                        .timeline-buttons {
+                            justify-content: center;
+                            gap: 8px;
+                        }
+                        
+                        .btn-timeline {
+                            flex: 1;
+                            min-width: 0;
+                            justify-content: center;
+                            padding: 10px 12px;
+                            font-size: 0.85rem;
+                        }
+                        
+                        .btn-timeline svg {
+                            width: 14px;
+                            height: 14px;
+                        }
+                    }
+                    
+                    /* Extra small screens */
+                    @media (max-width: 480px) {
+                        .timeline-card-inner {
+                            padding: 12px;
+                        }
+                        
+                        .timeline-image img {
+                            height: 160px;
+                        }
+                        
+                        .timeline-buttons {
+                            flex-direction: column;
+                            width: 100%;
+                        }
+                        
+                        .btn-timeline {
+                            width: 100%;
+                            flex: unset;
+                        }
+                    }
+                    </style>
                 </div>
                 <div class="col-12 col-lg-10 mx-auto">
                     

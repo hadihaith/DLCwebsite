@@ -3000,7 +3000,13 @@ def backup_database(request):
 
 @login_required
 def restore_database(request):
-    """Restore database from an uploaded SQLite file."""
+    """Restore database from an uploaded file (SQLite or PostgreSQL).
+    
+    Supports:
+    - SQLite to SQLite: Direct file copy
+    - SQLite to PostgreSQL: Automatic conversion via dumpdata/loaddata
+    - PostgreSQL to PostgreSQL: pg_restore
+    """
     # Only superuser or staff can restore database
     if not (request.user.is_superuser or request.user.is_staff):
         messages.error(request, 'You do not have permission to restore the database.')
@@ -3023,6 +3029,7 @@ def restore_database(request):
             import tempfile
             from django.core.management import call_command
             from django.db import connections
+            from io import StringIO
 
             # Get the uploaded file
             uploaded_file = request.FILES.get('database_file')
@@ -3030,27 +3037,31 @@ def restore_database(request):
             if not uploaded_file:
                 messages.error(request, 'No file uploaded.')
                 return render(request, 'frontend/restore_database.html')
+
+            # Detect uploaded file type
+            is_sqlite = uploaded_file.name.endswith(('.sqlite3', '.db', '.sqlite'))
+            is_postgres = uploaded_file.name.endswith(('.backup', '.sql', '.dump'))
             
-            # Validate file extension
-            if not uploaded_file.name.endswith(('.sqlite3', '.db', '.sqlite')):
-                messages.error(request, 'Invalid file type. Please upload a SQLite database file (.sqlite3, .db, or .sqlite).')
+            if not (is_sqlite or is_postgres):
+                messages.error(request, 'Invalid file type. Please upload a SQLite (.sqlite3, .db, .sqlite) or PostgreSQL (.backup, .sql, .dump) database file.')
                 return render(request, 'frontend/restore_database.html')
 
-            # Persist upload to a temporary file first so we can validate it
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.sqlite3') as tmp_file:
+            # Save uploaded file to temp location
+            with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_file.name)[1]) as tmp_file:
                 for chunk in uploaded_file.chunks():
                     tmp_file.write(chunk)
                 tmp_path = tmp_file.name
 
-            try:
-                # Basic integrity check — ensure SQLite can read the file
-                conn = sqlite3.connect(tmp_path)
-                conn.execute('PRAGMA schema_version;')
-                conn.close()
-            except sqlite3.Error as exc:
-                os.unlink(tmp_path)
-                messages.error(request, f'Uploaded file is not a valid SQLite database: {exc}')
-                return render(request, 'frontend/restore_database.html')
+            # Validate SQLite files
+            if is_sqlite:
+                try:
+                    conn = sqlite3.connect(tmp_path)
+                    conn.execute('PRAGMA schema_version;')
+                    conn.close()
+                except sqlite3.Error as exc:
+                    os.unlink(tmp_path)
+                    messages.error(request, f'Uploaded file is not a valid SQLite database: {exc}')
+                    return render(request, 'frontend/restore_database.html')
 
             db_engine = settings.DATABASES['default']['ENGINE']
             
@@ -3059,16 +3070,9 @@ def restore_database(request):
             os.makedirs(backup_dir, exist_ok=True)
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             
-            # SQLite restore
-            if 'sqlite' in db_engine:
+            # Case 1: SQLite to SQLite (direct copy)
+            if 'sqlite' in db_engine and is_sqlite:
                 db_path = settings.DATABASES['default']['NAME']
-                
-                # Validate file is SQLite
-                if not uploaded_file.name.endswith(('.sqlite3', '.db', '.sqlite')):
-                    messages.error(request, 'Invalid file type. Please upload a SQLite database file.')
-                    os.unlink(tmp_path)
-                    return render(request, 'frontend/restore_database.html')
-                
                 backup_path = os.path.join(backup_dir, f'auto_backup_before_restore_{timestamp}.sqlite3')
                 
                 # Copy current database as backup
@@ -3093,18 +3097,106 @@ def restore_database(request):
                     messages.error(request, f'Restore failed while aligning schema: {migrate_error}')
                     return render(request, 'frontend/restore_database.html')
                 
-                messages.success(request, 'Database restored successfully!')
+                messages.success(request, 'SQLite database restored successfully!')
                 messages.info(request, f'Backup saved: {backup_path}')
             
-            # PostgreSQL restore
-            elif 'postgresql' in db_engine or 'psycopg2' in db_engine:
+            # Case 2: SQLite to PostgreSQL (conversion via dumpdata/loaddata)
+            elif ('postgresql' in db_engine or 'psycopg2' in db_engine) and is_sqlite:
                 import subprocess
+                import json
                 
-                # Validate file type
-                if not (uploaded_file.name.endswith(('.backup', '.sql', '.dump'))):
-                    messages.error(request, 'Invalid file type. Please upload a PostgreSQL backup file (.backup, .sql, or .dump).')
+                messages.info(request, 'Converting SQLite to PostgreSQL... This may take a few minutes.')
+                
+                # Create backup of current PostgreSQL database
+                db_config = settings.DATABASES['default']
+                db_name = db_config['NAME']
+                db_user = db_config['USER']
+                db_password = db_config.get('PASSWORD', '')
+                db_host = db_config.get('HOST', 'localhost')
+                db_port = db_config.get('PORT', '5432')
+                
+                backup_path = os.path.join(backup_dir, f'auto_backup_before_restore_{timestamp}.json')
+                
+                try:
+                    # Step 1: Backup current PostgreSQL data
+                    connections.close_all()
+                    out = StringIO()
+                    call_command('dumpdata', 
+                                '--natural-foreign', 
+                                '--natural-primary',
+                                '--exclude=contenttypes',
+                                '--exclude=auth.permission',
+                                stdout=out)
+                    with open(backup_path, 'w') as f:
+                        f.write(out.getvalue())
+                    
+                    # Step 2: Extract data from SQLite file using temporary database connection
+                    temp_db_config = {
+                        'ENGINE': 'django.db.backends.sqlite3',
+                        'NAME': tmp_path,
+                    }
+                    
+                    # Temporarily add the SQLite database to settings
+                    settings.DATABASES['temp_sqlite'] = temp_db_config
+                    
+                    # Export data from SQLite
+                    json_export_path = os.path.join(backup_dir, f'temp_sqlite_export_{timestamp}.json')
+                    
+                    with open(json_export_path, 'w') as f:
+                        call_command('dumpdata',
+                                    '--database=temp_sqlite',
+                                    '--natural-foreign',
+                                    '--natural-primary',
+                                    '--exclude=contenttypes',
+                                    '--exclude=auth.permission',
+                                    stdout=f)
+                    
+                    # Step 3: Flush current PostgreSQL database
+                    connections.close_all()
+                    call_command('flush', '--noinput', interactive=False)
+                    
+                    # Step 4: Load SQLite data into PostgreSQL
+                    connections.close_all()
+                    call_command('loaddata', json_export_path)
+                    
+                    # Step 5: Run migrations to ensure schema is up to date
+                    call_command('migrate', interactive=False, verbosity=0)
+                    
+                    # Cleanup temporary files
                     os.unlink(tmp_path)
+                    os.unlink(json_export_path)
+                    
+                    # Remove temporary database from settings
+                    del settings.DATABASES['temp_sqlite']
+                    
+                    messages.success(request, 'SQLite database successfully converted and restored to PostgreSQL!')
+                    messages.info(request, f'JSON backup saved: {backup_path}')
+                    messages.warning(request, 'Please verify all data migrated correctly. Sequences may need reset.')
+                    
+                except Exception as e:
+                    # Cleanup on error
+                    if os.path.exists(tmp_path):
+                        os.unlink(tmp_path)
+                    if 'json_export_path' in locals() and os.path.exists(json_export_path):
+                        os.unlink(json_export_path)
+                    if 'temp_sqlite' in settings.DATABASES:
+                        del settings.DATABASES['temp_sqlite']
+                    
+                    # Try to restore from backup
+                    try:
+                        if os.path.exists(backup_path):
+                            connections.close_all()
+                            call_command('flush', '--noinput', interactive=False)
+                            call_command('loaddata', backup_path)
+                            messages.error(request, f'SQLite to PostgreSQL conversion failed: {str(e)}. Restored from backup.')
+                    except:
+                        messages.error(request, f'SQLite to PostgreSQL conversion failed: {str(e)}. Could not restore backup.')
+                    
                     return render(request, 'frontend/restore_database.html')
+            
+            # Case 3: PostgreSQL to PostgreSQL (pg_restore)
+            elif ('postgresql' in db_engine or 'psycopg2' in db_engine) and is_postgres:
+                import subprocess
                 
                 db_config = settings.DATABASES['default']
                 db_name = db_config['NAME']
@@ -3136,7 +3228,6 @@ def restore_database(request):
                     # Close all connections
                     connections.close_all()
                     
-                    # Drop and recreate database (alternative: use --clean --if-exists)
                     # Restore using pg_restore
                     restore_cmd = [
                         'pg_restore',
@@ -3173,6 +3264,12 @@ def restore_database(request):
                     messages.error(request, f'PostgreSQL restore failed: {e.stderr if hasattr(e, "stderr") else str(e)}')
                     return render(request, 'frontend/restore_database.html')
             
+            # Case 4: Invalid combination (PostgreSQL backup to SQLite)
+            elif 'sqlite' in db_engine and is_postgres:
+                os.unlink(tmp_path)
+                messages.error(request, 'Cannot restore PostgreSQL backup to SQLite database. Please upload a SQLite database file.')
+                return render(request, 'frontend/restore_database.html')
+            
             else:
                 os.unlink(tmp_path)
                 messages.error(request, f'Database restore is not supported for {db_engine}.')
@@ -3182,9 +3279,17 @@ def restore_database(request):
             return redirect('login')
             
         except Exception as e:
+            import traceback
             messages.error(request, f'Error restoring database: {str(e)}')
+            messages.error(request, f'Details: {traceback.format_exc()}')
             return render(request, 'frontend/restore_database.html')
     
     # GET request - show the upload form
-    return render(request, 'frontend/restore_database.html')
+    from django.conf import settings
+    db_engine = settings.DATABASES['default']['ENGINE']
+    context = {
+        'current_db': 'PostgreSQL' if ('postgresql' in db_engine or 'psycopg2' in db_engine) else 'SQLite',
+        'supports_conversion': True
+    }
+    return render(request, 'frontend/restore_database.html', context)
 
