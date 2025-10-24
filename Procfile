@@ -1,1 +1,1 @@
-web: python manage.py collectstatic --noinput && python manage.py migrate && python manage.py create_admin && gunicorn Dlcweb.wsgi:application
+web: python manage.py collectstatic --noinput && python manage.py migrate && python manage.py create_admin && gunicorn Dlcweb.wsgi:application --timeout 300 --bind 0.0.0.0:$PORT

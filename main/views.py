@@ -3092,6 +3092,7 @@ def restore_database(request):
             logger.info("Models imported successfully")
             
             messages.info(request, 'Starting data import... This may take a few minutes.')
+            messages.warning(request, '⚠️ Large imports may timeout. Keep database files under 1000 records for best results.')
             
             # Connect to uploaded SQLite database
             sqlite_conn = sqlite3.connect(tmp_path)
@@ -3387,17 +3388,29 @@ def restore_database(request):
                 sqlite_cursor.execute("SELECT * FROM main_deanliststudent")
                 for row in sqlite_cursor.fetchall():
                     row = dict(row)  # Convert to dict
-                    dean_list = DeanList.objects.filter(id=row['dean_list_id']).first()
-                    if dean_list and not DeanListStudent.objects.filter(dean_list=dean_list, student_id=row['student_id']).exists():
-                        DeanListStudent.objects.create(
-                            dean_list=dean_list,
-                            student_id=row['student_id'],
-                            student_name=row.get('student_name', ''),
-                            gpa=row.get('gpa')
-                        )
-                        stats['dean_students']['added'] += 1
-                    else:
-                        stats['dean_students']['skipped'] += 1
+                    dean_list_id = row.get('dean_list_id')
+                    
+                    if dean_list_id:
+                        # Look up the dean list name from source DB
+                        sqlite_cursor.execute("SELECT name FROM main_deanlist WHERE id = ?", (dean_list_id,))
+                        dean_list_data = sqlite_cursor.fetchone()
+                        
+                        if dean_list_data:
+                            dean_list_data = dict(dean_list_data)
+                            dean_list = DeanList.objects.filter(name=dean_list_data['name']).first()
+                            
+                            if dean_list:
+                                student_id = row.get('student_id', '')
+                                if student_id and not DeanListStudent.objects.filter(dean_list=dean_list, student_id=student_id).exists():
+                                    DeanListStudent.objects.create(
+                                        dean_list=dean_list,
+                                        student_id=student_id,
+                                        student_name=row.get('student_name', ''),
+                                        gpa=row.get('gpa')
+                                    )
+                                    stats['dean_students']['added'] += 1
+                                else:
+                                    stats['dean_students']['skipped'] += 1
             except Exception as e:
                 messages.warning(request, f'Dean list student import issue: {str(e)}')
             
