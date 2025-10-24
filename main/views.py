@@ -3162,25 +3162,31 @@ def restore_database(request):
             except Exception as e:
                 messages.warning(request, f'User import issue: {str(e)}')
             
-            # Import Events (skip if title + date exists)
+            # Import Events (skip if title + start_date exists)
             try:
                 sqlite_cursor.execute("SELECT * FROM main_event")
                 for row in sqlite_cursor.fetchall():
                     row = dict(row)  # Convert to dict
-                    # Get date - might be 'date' or 'event_date' depending on schema
-                    event_date = row.get('date') or row.get('event_date')
-                    event_title = row.get('title') or row.get('event_title', '')
+                    event_title = row.get('title', '')
+                    start_date = row.get('start_date')
                     
-                    if event_title and event_date:
-                        if not Event.objects.filter(title=event_title, date=event_date).exists():
+                    if event_title and start_date:
+                        if not Event.objects.filter(title=event_title, start_date=start_date).exists():
                             Event.objects.create(
                                 title=event_title,
                                 description=row.get('description', ''),
-                                date=event_date,
-                                time=row.get('time'),
-                                location=row.get('location', ''),
+                                start_date=start_date,
+                                end_date=row.get('end_date', start_date),  # Default to start_date if missing
+                                start_time=row.get('start_time'),
+                                end_time=row.get('end_time'),
+                                image_url=row.get('image_url', ''),
                                 created_at=row.get('created_at'),
-                                image=row.get('image', '')
+                                secret_start_a=row.get('secret_start_a'),
+                                secret_start_b=row.get('secret_start_b'),
+                                secret_start_c=row.get('secret_start_c'),
+                                secret_end_a=row.get('secret_end_a'),
+                                secret_end_b=row.get('secret_end_b'),
+                                secret_end_c=row.get('secret_end_c')
                             )
                             stats['events']['added'] += 1
                         else:
@@ -3196,19 +3202,23 @@ def restore_database(request):
                     # Find event by ID from the event we just imported
                     event_id = row.get('event_id')
                     if event_id:
-                        # Try to find the event by title since IDs won't match
-                        sqlite_cursor.execute("SELECT title, date FROM main_event WHERE id = ?", (event_id,))
+                        # Try to find the event by title+start_date since IDs won't match
+                        sqlite_cursor.execute("SELECT title, start_date FROM main_event WHERE id = ?", (event_id,))
                         event_data = sqlite_cursor.fetchone()
                         if event_data:
                             event_data = dict(event_data)  # Convert to dict
-                            event = Event.objects.filter(title=event_data['title'], date=event_data['date']).first()
+                            event = Event.objects.filter(
+                                title=event_data['title'], 
+                                start_date=event_data['start_date']
+                            ).first()
                             if event:
                                 section_code = row.get('section_code', '')
+                                professor_name = row.get('professor_name', '')
                                 if not EventSection.objects.filter(event=event, section_code=section_code).exists():
                                     EventSection.objects.create(
                                         event=event,
                                         section_code=section_code,
-                                        professor_name=row.get('professor_name', '')
+                                        professor_name=professor_name
                                     )
                                     stats['event_sections']['added'] += 1
                                 else:
@@ -3255,67 +3265,86 @@ def restore_database(request):
                 sqlite_cursor.execute("SELECT * FROM main_attendance")
                 for row in sqlite_cursor.fetchall():
                     row = dict(row)  # Convert to dict
-                    # Find event by looking up the event from source DB and matching by title/date
+                    # Find event by looking up the event from source DB and matching by title/start_date
                     event_id = row.get('event_id')
                     if event_id:
-                        sqlite_cursor.execute("SELECT title, date FROM main_event WHERE id = ?", (event_id,))
+                        sqlite_cursor.execute("SELECT title, start_date FROM main_event WHERE id = ?", (event_id,))
                         event_data = sqlite_cursor.fetchone()
                         if event_data:
                             event_data = dict(event_data)  # Convert to dict
-                            event = Event.objects.filter(title=event_data['title'], date=event_data['date']).first()
+                            event = Event.objects.filter(
+                                title=event_data['title'], 
+                                start_date=event_data['start_date']
+                            ).first()
                             if event:
                                 student_id = row.get('student_id', '')
                                 if student_id and not Attendance.objects.filter(event=event, student_id=student_id).exists():
-                                    # Find section if it exists
-                                    section = None
-                                    section_id = row.get('sections_id')
-                                    if section_id:
-                                        sqlite_cursor.execute("SELECT section_code FROM main_eventsection WHERE id = ?", (section_id,))
-                                        section_data = sqlite_cursor.fetchone()
-                                        if section_data:
-                                            section_data = dict(section_data)  # Convert to dict
-                                            section = EventSection.objects.filter(
-                                                event=event,
-                                                section_code=section_data['section_code']
-                                            ).first()
-                                    
-                                    Attendance.objects.create(
+                                    # Create attendance record
+                                    attendance = Attendance.objects.create(
                                         event=event,
                                         student_id=student_id,
                                         student_name=row.get('student_name', ''),
                                         email=row.get('email', ''),
-                                        sections=section
+                                        code=row.get('code', ''),
+                                        present_start=bool(row.get('present_start', 0)),
+                                        present_end=bool(row.get('present_end', 0)),
+                                        recorded_at=row.get('recorded_at')
                                     )
+                                    
+                                    # Handle sections many-to-many relationship
+                                    try:
+                                        sqlite_cursor.execute(
+                                            "SELECT eventsection_id FROM main_attendance_sections WHERE attendance_id = ?", 
+                                            (row['id'],)
+                                        )
+                                        section_ids = sqlite_cursor.fetchall()
+                                        
+                                        for section_row in section_ids:
+                                            section_id = section_row[0]
+                                            # Get section code from source DB
+                                            sqlite_cursor.execute(
+                                                "SELECT section_code FROM main_eventsection WHERE id = ?", 
+                                                (section_id,)
+                                            )
+                                            section_data = sqlite_cursor.fetchone()
+                                            if section_data:
+                                                section_code = section_data[0]
+                                                # Find section in target DB
+                                                section = EventSection.objects.filter(
+                                                    event=event,
+                                                    section_code=section_code
+                                                ).first()
+                                                if section:
+                                                    attendance.sections.add(section)
+                                    except Exception as section_error:
+                                        # If sections import fails, continue without them
+                                        pass
+                                    
                                     stats['attendance']['added'] += 1
                                 else:
                                     stats['attendance']['skipped'] += 1
             except Exception as e:
                 messages.warning(request, f'Attendance import issue: {str(e)}')
             
-            # Import Threads
+            # Import Threads (Thread model has no author field)
             try:
                 sqlite_cursor.execute("SELECT * FROM main_thread")
                 for row in sqlite_cursor.fetchall():
                     row = dict(row)  # Convert to dict
-                    # Find author by looking up in source DB and matching by username
-                    author_id = row.get('author_id')
-                    if author_id:
-                        sqlite_cursor.execute("SELECT username FROM main_user WHERE id = ?", (author_id,))
-                        author_data = sqlite_cursor.fetchone()
-                        if author_data:
-                            author_data = dict(author_data)  # Convert to dict
-                            author = User.objects.filter(username=author_data['username']).first()
-                            if author:
-                                title = row.get('title', '')
-                                if title and not Thread.objects.filter(title=title, author=author).exists():
-                                    Thread.objects.create(
-                                        title=title,
-                                        content=row.get('content', ''),
-                                        author=author
-                                    )
-                                    stats['threads']['added'] += 1
-                                else:
-                                    stats['threads']['skipped'] += 1
+                    title = row.get('title', '')
+                    content = row.get('content', '')
+                    
+                    # Check if thread with same title already exists
+                    if title and not Thread.objects.filter(title=title).exists():
+                        Thread.objects.create(
+                            title=title,
+                            content=content,
+                            created_at=row.get('created_at'),
+                            is_resolved=bool(row.get('is_resolved', 0))
+                        )
+                        stats['threads']['added'] += 1
+                    else:
+                        stats['threads']['skipped'] += 1
             except Exception as e:
                 messages.warning(request, f'Thread import issue: {str(e)}')
             
@@ -3326,60 +3355,59 @@ def restore_database(request):
                     row = dict(row)  # Convert to dict
                     # Find thread by looking up in source DB
                     thread_id = row.get('thread_id')
-                    author_id = row.get('author_id')
+                    user_id = row.get('user_id')
                     
-                    if thread_id and author_id:
+                    if thread_id and user_id:
                         # Get thread title from source
-                        sqlite_cursor.execute("SELECT title, author_id FROM main_thread WHERE id = ?", (thread_id,))
+                        sqlite_cursor.execute("SELECT title FROM main_thread WHERE id = ?", (thread_id,))
                         thread_data = sqlite_cursor.fetchone()
                         
-                        # Get author username from source
-                        sqlite_cursor.execute("SELECT username FROM main_user WHERE id = ?", (author_id,))
-                        author_data = sqlite_cursor.fetchone()
+                        # Get user username from source
+                        sqlite_cursor.execute("SELECT username FROM main_user WHERE id = ?", (user_id,))
+                        user_data = sqlite_cursor.fetchone()
                         
-                        if thread_data and author_data:
+                        if thread_data and user_data:
                             thread_data = dict(thread_data)  # Convert to dict
-                            author_data = dict(author_data)  # Convert to dict
+                            user_data = dict(user_data)  # Convert to dict
                             
-                            # Get thread author username
-                            sqlite_cursor.execute("SELECT username FROM main_user WHERE id = ?", (thread_data['author_id'],))
-                            thread_author_data = sqlite_cursor.fetchone()
+                            # Find thread by title (since IDs won't match)
+                            thread = Thread.objects.filter(title=thread_data['title']).first()
+                            # Find user by username
+                            user = User.objects.filter(username=user_data['username']).first()
                             
-                            if thread_author_data:
-                                thread_author_data = dict(thread_author_data)  # Convert to dict
-                                thread_author = User.objects.filter(username=thread_author_data['username']).first()
-                                if thread_author:
-                                    thread = Thread.objects.filter(title=thread_data['title'], author=thread_author).first()
-                                    author = User.objects.filter(username=author_data['username']).first()
-                                    
-                                    if thread and author:
-                                        Reply.objects.create(
-                                            thread=thread,
-                                            content=row.get('content', ''),
-                                            author=author
-                                        )
-                                        stats['replies']['added'] += 1
-                                    else:
-                                        stats['replies']['skipped'] += 1
+                            if thread and user:
+                                Reply.objects.create(
+                                    thread=thread,
+                                    user=user,
+                                    content=row.get('content', ''),
+                                    created_at=row.get('created_at')
+                                )
+                                stats['replies']['added'] += 1
+                            else:
+                                stats['replies']['skipped'] += 1
             except Exception as e:
                 messages.warning(request, f'Reply import issue: {str(e)}')
             
-            # Import Dean Lists
+            # Import Dean Lists (uses semester + year, not name)
             try:
                 sqlite_cursor.execute("SELECT * FROM main_deanlist")
                 for row in sqlite_cursor.fetchall():
                     row = dict(row)  # Convert to dict
-                    dean_list_name = row.get('name') or row.get('list_name', '')
-                    if dean_list_name and not DeanList.objects.filter(name=dean_list_name).exists():
-                        DeanList.objects.create(
-                            name=dean_list_name,
-                            year=row.get('year', ''),
-                            semester=row.get('semester', ''),
-                            upload_date=row.get('upload_date')
-                        )
-                        stats['dean_lists']['added'] += 1
-                    else:
-                        stats['dean_lists']['skipped'] += 1
+                    semester = row.get('semester', '')
+                    year = row.get('year')
+                    
+                    if semester and year:
+                        # Check if dean list with same semester/year already exists
+                        if not DeanList.objects.filter(semester=semester, year=year).exists():
+                            DeanList.objects.create(
+                                semester=semester,
+                                year=year,
+                                excel_file=row.get('excel_file', ''),
+                                created_at=row.get('created_at')
+                            )
+                            stats['dean_lists']['added'] += 1
+                        else:
+                            stats['dean_lists']['skipped'] += 1
             except Exception as e:
                 messages.warning(request, f'Dean list import issue: {str(e)}')
             
@@ -3391,22 +3419,38 @@ def restore_database(request):
                     dean_list_id = row.get('dean_list_id')
                     
                     if dean_list_id:
-                        # Look up the dean list name from source DB
-                        sqlite_cursor.execute("SELECT name FROM main_deanlist WHERE id = ?", (dean_list_id,))
+                        # Look up the dean list semester/year from source DB
+                        sqlite_cursor.execute("SELECT semester, year FROM main_deanlist WHERE id = ?", (dean_list_id,))
                         dean_list_data = sqlite_cursor.fetchone()
                         
                         if dean_list_data:
                             dean_list_data = dict(dean_list_data)
-                            dean_list = DeanList.objects.filter(name=dean_list_data['name']).first()
+                            # Find DeanList in target by semester + year
+                            dean_list = DeanList.objects.filter(
+                                semester=dean_list_data['semester'],
+                                year=dean_list_data['year']
+                            ).first()
                             
                             if dean_list:
                                 student_id = row.get('student_id', '')
-                                if student_id and not DeanListStudent.objects.filter(dean_list=dean_list, student_id=student_id).exists():
+                                semester = row.get('semester', '')
+                                year = row.get('year')
+                                
+                                # Check if student already exists in this dean list
+                                if student_id and not DeanListStudent.objects.filter(
+                                    dean_list=dean_list, 
+                                    student_id=student_id
+                                ).exists():
                                     DeanListStudent.objects.create(
                                         dean_list=dean_list,
                                         student_id=student_id,
                                         student_name=row.get('student_name', ''),
-                                        gpa=row.get('gpa')
+                                        student_major=row.get('student_major', ''),
+                                        semester=semester,
+                                        year=year,
+                                        gpa=row.get('gpa'),
+                                        passed_credits=row.get('passed_credits', 0),
+                                        registered_credits=row.get('registered_credits', 0)
                                     )
                                     stats['dean_students']['added'] += 1
                                 else:
@@ -3419,20 +3463,20 @@ def restore_database(request):
                 sqlite_cursor.execute("SELECT * FROM main_course")
                 for row in sqlite_cursor.fetchall():
                     row = dict(row)  # Convert to dict
-                    course_code = row.get('course_code') or row.get('code', '')
-                    course_name = row.get('course_name') or row.get('name', '')
+                    course_id = row.get('course_id', '')
+                    course_name = row.get('course_name', '')
                     
-                    if course_code and not Course.objects.filter(course_code=course_code).exists():
+                    if course_id and not Course.objects.filter(course_id=course_id).exists():
                         Course.objects.create(
-                            course_code=course_code,
+                            course_id=course_id,
                             course_name=course_name,
-                            credits=row.get('credits', 3),
+                            syllabus_url=row.get('syllabus_url', ''),
+                            info_url=row.get('info_url', ''),
                             department=row.get('department', ''),
-                            instructor=row.get('instructor', ''),
-                            schedule=row.get('schedule', ''),
-                            room=row.get('room', ''),
-                            semester=row.get('semester', ''),
-                            year=row.get('year', '')
+                            credits=row.get('credits'),
+                            is_active=bool(row.get('is_active', 1)),
+                            last_updated=row.get('last_updated'),
+                            created_at=row.get('created_at')
                         )
                         stats['courses']['added'] += 1
                     else:
