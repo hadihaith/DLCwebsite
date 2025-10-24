@@ -3086,25 +3086,27 @@ def restore_database(request):
                 'event_sections': {'added': 0, 'skipped': 0},
             }
             
-            # Import Users (skip if student_id exists)
+            # Import Users (skip if username exists)
             try:
                 sqlite_cursor.execute("SELECT * FROM main_user")
                 for row in sqlite_cursor.fetchall():
-                    if not User.objects.filter(student_id=row['student_id']).exists():
+                    username = row.get('username', '')
+                    if username and not User.objects.filter(username=username).exists():
                         User.objects.create(
-                            student_id=row['student_id'],
-                            password=row['password'],
-                            last_login=row['last_login'],
-                            is_superuser=bool(row['is_superuser']),
-                            username=row['username'],
-                            first_name=row['first_name'],
-                            last_name=row['last_name'],
-                            email=row['email'],
-                            is_staff=bool(row['is_staff']),
-                            is_active=bool(row['is_active']),
-                            date_joined=row['date_joined'],
+                            username=username,
+                            password=row.get('password', ''),
+                            last_login=row.get('last_login'),
+                            is_superuser=bool(row.get('is_superuser', 0)),
+                            first_name=row.get('first_name', ''),
+                            last_name=row.get('last_name', ''),
+                            email=row.get('email', ''),
+                            is_staff=bool(row.get('is_staff', 0)),
+                            is_active=bool(row.get('is_active', 1)),
+                            date_joined=row.get('date_joined'),
                             is_member=bool(row.get('is_member', 0)),
-                            role=row.get('role', 'member')
+                            role=row.get('role', 'MEMBER'),
+                            is_admin=bool(row.get('is_admin', 0)),
+                            is_exchange_officer=bool(row.get('is_exchange_officer', 0))
                         )
                         stats['users']['added'] += 1
                     else:
@@ -3182,58 +3184,12 @@ def restore_database(request):
                 messages.warning(request, f'Application import issue: {str(e)}')
             
             # Import Exchange Applications
+            # NOTE: Skipping ExchangeApplications because they have required FileField fields
+            # (english_proficiency_document, transcript_document, passport_copy)
+            # that cannot be imported from SQLite database
             try:
-                sqlite_cursor.execute("SELECT * FROM main_exchangeapplication")
-                for row in sqlite_cursor.fetchall():
-                    email = row.get('email', '')
-                    passport_number = row.get('passport_number', '')
-                    
-                    # Skip if duplicate (check by email and passport)
-                    if email and passport_number:
-                        if not ExchangeApplication.objects.filter(email=email, passport_number=passport_number).exists():
-                            # Get or create partner university
-                            home_institution_id = row.get('home_institution_id')
-                            partner_uni = None
-                            if home_institution_id:
-                                # Try to find partner university from source DB
-                                try:
-                                    sqlite_cursor.execute("SELECT * FROM main_partneruniversity WHERE id = ?", (home_institution_id,))
-                                    uni_data = sqlite_cursor.fetchone()
-                                    if uni_data:
-                                        from main.models import PartnerUniversity
-                                        partner_uni, _ = PartnerUniversity.objects.get_or_create(
-                                            university_name=uni_data.get('university_name', ''),
-                                            defaults={
-                                                'country': uni_data.get('country', ''),
-                                                'city': uni_data.get('city', ''),
-                                                'website_url': uni_data.get('website_url', ''),
-                                                'contact_email': uni_data.get('contact_email', '')
-                                            }
-                                        )
-                                except:
-                                    pass
-                            
-                            if partner_uni:  # Only import if we have a valid home institution
-                                ExchangeApplication.objects.create(
-                                    first_name=row.get('first_name', ''),
-                                    last_name=row.get('last_name', ''),
-                                    date_of_birth=row.get('date_of_birth'),
-                                    home_institution=partner_uni,
-                                    home_major=row.get('home_major', ''),
-                                    program_level=row.get('program_level', 'UNDERGRADUATE'),
-                                    exchange_semester=row.get('exchange_semester', 'FALL'),
-                                    exchange_academic_year=row.get('exchange_academic_year', ''),
-                                    gender=row.get('gender', 'OTHER'),
-                                    passport_number=passport_number,
-                                    passport_expiry_date=row.get('passport_expiry_date'),
-                                    email=email,
-                                    completed_credits=row.get('completed_credits', 0)
-                                )
-                                stats['exchange_apps']['added'] += 1
-                            else:
-                                stats['exchange_apps']['skipped'] += 1
-                        else:
-                            stats['exchange_apps']['skipped'] += 1
+                messages.info(request, 'Skipping Exchange Applications (requires file uploads)')
+                stats['exchange_apps']['skipped'] = 0  # Mark as intentionally skipped
             except Exception as e:
                 messages.warning(request, f'Exchange application import issue: {str(e)}')
             
@@ -3280,13 +3236,13 @@ def restore_database(request):
             try:
                 sqlite_cursor.execute("SELECT * FROM main_thread")
                 for row in sqlite_cursor.fetchall():
-                    # Find author by looking up in source DB and matching by student_id
+                    # Find author by looking up in source DB and matching by username
                     author_id = row.get('author_id')
                     if author_id:
-                        sqlite_cursor.execute("SELECT student_id FROM main_user WHERE id = ?", (author_id,))
+                        sqlite_cursor.execute("SELECT username FROM main_user WHERE id = ?", (author_id,))
                         author_data = sqlite_cursor.fetchone()
                         if author_data:
-                            author = User.objects.filter(student_id=author_data['student_id']).first()
+                            author = User.objects.filter(username=author_data['username']).first()
                             if author:
                                 title = row.get('title', '')
                                 if title and not Thread.objects.filter(title=title, author=author).exists():
@@ -3314,20 +3270,20 @@ def restore_database(request):
                         sqlite_cursor.execute("SELECT title, author_id FROM main_thread WHERE id = ?", (thread_id,))
                         thread_data = sqlite_cursor.fetchone()
                         
-                        # Get author student_id from source
-                        sqlite_cursor.execute("SELECT student_id FROM main_user WHERE id = ?", (author_id,))
+                        # Get author username from source
+                        sqlite_cursor.execute("SELECT username FROM main_user WHERE id = ?", (author_id,))
                         author_data = sqlite_cursor.fetchone()
                         
                         if thread_data and author_data:
-                            # Get thread author student_id
-                            sqlite_cursor.execute("SELECT student_id FROM main_user WHERE id = ?", (thread_data['author_id'],))
+                            # Get thread author username
+                            sqlite_cursor.execute("SELECT username FROM main_user WHERE id = ?", (thread_data['author_id'],))
                             thread_author_data = sqlite_cursor.fetchone()
                             
                             if thread_author_data:
-                                thread_author = User.objects.filter(student_id=thread_author_data['student_id']).first()
+                                thread_author = User.objects.filter(username=thread_author_data['username']).first()
                                 if thread_author:
                                     thread = Thread.objects.filter(title=thread_data['title'], author=thread_author).first()
-                                    author = User.objects.filter(student_id=author_data['student_id']).first()
+                                    author = User.objects.filter(username=author_data['username']).first()
                                     
                                     if thread and author:
                                         Reply.objects.create(
