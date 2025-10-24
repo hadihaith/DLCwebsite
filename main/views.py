@@ -3116,6 +3116,7 @@ def restore_database(request):
             try:
                 sqlite_cursor.execute("SELECT * FROM main_user")
                 for row in sqlite_cursor.fetchall():
+                    row = dict(row)  # Convert sqlite3.Row to dict
                     username = row.get('username', '')
                     if username and not User.objects.filter(username=username).exists():
                         User.objects.create(
@@ -3144,19 +3145,25 @@ def restore_database(request):
             try:
                 sqlite_cursor.execute("SELECT * FROM main_event")
                 for row in sqlite_cursor.fetchall():
-                    if not Event.objects.filter(title=row['title'], date=row['date']).exists():
-                        Event.objects.create(
-                            title=row['title'],
-                            description=row.get('description', ''),
-                            date=row['date'],
-                            time=row.get('time'),
-                            location=row.get('location', ''),
-                            created_at=row.get('created_at'),
-                            image=row.get('image', '')
-                        )
-                        stats['events']['added'] += 1
-                    else:
-                        stats['events']['skipped'] += 1
+                    row = dict(row)  # Convert to dict
+                    # Get date - might be 'date' or 'event_date' depending on schema
+                    event_date = row.get('date') or row.get('event_date')
+                    event_title = row.get('title') or row.get('event_title', '')
+                    
+                    if event_title and event_date:
+                        if not Event.objects.filter(title=event_title, date=event_date).exists():
+                            Event.objects.create(
+                                title=event_title,
+                                description=row.get('description', ''),
+                                date=event_date,
+                                time=row.get('time'),
+                                location=row.get('location', ''),
+                                created_at=row.get('created_at'),
+                                image=row.get('image', '')
+                            )
+                            stats['events']['added'] += 1
+                        else:
+                            stats['events']['skipped'] += 1
             except Exception as e:
                 messages.warning(request, f'Event import issue: {str(e)}')
             
@@ -3164,6 +3171,7 @@ def restore_database(request):
             try:
                 sqlite_cursor.execute("SELECT * FROM main_eventsection")
                 for row in sqlite_cursor.fetchall():
+                    row = dict(row)  # Convert to dict
                     # Find event by ID from the event we just imported
                     event_id = row.get('event_id')
                     if event_id:
@@ -3171,6 +3179,7 @@ def restore_database(request):
                         sqlite_cursor.execute("SELECT title, date FROM main_event WHERE id = ?", (event_id,))
                         event_data = sqlite_cursor.fetchone()
                         if event_data:
+                            event_data = dict(event_data)  # Convert to dict
                             event = Event.objects.filter(title=event_data['title'], date=event_data['date']).first()
                             if event:
                                 section_code = row.get('section_code', '')
@@ -3190,6 +3199,7 @@ def restore_database(request):
             try:
                 sqlite_cursor.execute("SELECT * FROM main_application")
                 for row in sqlite_cursor.fetchall():
+                    row = dict(row)  # Convert to dict
                     student_id = row.get('student_id', '')
                     # Use time_submitted year to avoid duplicates from same year
                     if student_id and not Application.objects.filter(student_id=student_id).exists():
@@ -3223,12 +3233,14 @@ def restore_database(request):
             try:
                 sqlite_cursor.execute("SELECT * FROM main_attendance")
                 for row in sqlite_cursor.fetchall():
+                    row = dict(row)  # Convert to dict
                     # Find event by looking up the event from source DB and matching by title/date
                     event_id = row.get('event_id')
                     if event_id:
                         sqlite_cursor.execute("SELECT title, date FROM main_event WHERE id = ?", (event_id,))
                         event_data = sqlite_cursor.fetchone()
                         if event_data:
+                            event_data = dict(event_data)  # Convert to dict
                             event = Event.objects.filter(title=event_data['title'], date=event_data['date']).first()
                             if event:
                                 student_id = row.get('student_id', '')
@@ -3240,6 +3252,7 @@ def restore_database(request):
                                         sqlite_cursor.execute("SELECT section_code FROM main_eventsection WHERE id = ?", (section_id,))
                                         section_data = sqlite_cursor.fetchone()
                                         if section_data:
+                                            section_data = dict(section_data)  # Convert to dict
                                             section = EventSection.objects.filter(
                                                 event=event,
                                                 section_code=section_data['section_code']
@@ -3262,12 +3275,14 @@ def restore_database(request):
             try:
                 sqlite_cursor.execute("SELECT * FROM main_thread")
                 for row in sqlite_cursor.fetchall():
+                    row = dict(row)  # Convert to dict
                     # Find author by looking up in source DB and matching by username
                     author_id = row.get('author_id')
                     if author_id:
                         sqlite_cursor.execute("SELECT username FROM main_user WHERE id = ?", (author_id,))
                         author_data = sqlite_cursor.fetchone()
                         if author_data:
+                            author_data = dict(author_data)  # Convert to dict
                             author = User.objects.filter(username=author_data['username']).first()
                             if author:
                                 title = row.get('title', '')
@@ -3287,6 +3302,7 @@ def restore_database(request):
             try:
                 sqlite_cursor.execute("SELECT * FROM main_reply")
                 for row in sqlite_cursor.fetchall():
+                    row = dict(row)  # Convert to dict
                     # Find thread by looking up in source DB
                     thread_id = row.get('thread_id')
                     author_id = row.get('author_id')
@@ -3301,11 +3317,15 @@ def restore_database(request):
                         author_data = sqlite_cursor.fetchone()
                         
                         if thread_data and author_data:
+                            thread_data = dict(thread_data)  # Convert to dict
+                            author_data = dict(author_data)  # Convert to dict
+                            
                             # Get thread author username
                             sqlite_cursor.execute("SELECT username FROM main_user WHERE id = ?", (thread_data['author_id'],))
                             thread_author_data = sqlite_cursor.fetchone()
                             
                             if thread_author_data:
+                                thread_author_data = dict(thread_author_data)  # Convert to dict
                                 thread_author = User.objects.filter(username=thread_author_data['username']).first()
                                 if thread_author:
                                     thread = Thread.objects.filter(title=thread_data['title'], author=thread_author).first()
@@ -3327,9 +3347,11 @@ def restore_database(request):
             try:
                 sqlite_cursor.execute("SELECT * FROM main_deanlist")
                 for row in sqlite_cursor.fetchall():
-                    if not DeanList.objects.filter(name=row['name']).exists():
+                    row = dict(row)  # Convert to dict
+                    dean_list_name = row.get('name') or row.get('list_name', '')
+                    if dean_list_name and not DeanList.objects.filter(name=dean_list_name).exists():
                         DeanList.objects.create(
-                            name=row['name'],
+                            name=dean_list_name,
                             year=row.get('year', ''),
                             semester=row.get('semester', ''),
                             upload_date=row.get('upload_date')
@@ -3344,6 +3366,7 @@ def restore_database(request):
             try:
                 sqlite_cursor.execute("SELECT * FROM main_deanliststudent")
                 for row in sqlite_cursor.fetchall():
+                    row = dict(row)  # Convert to dict
                     dean_list = DeanList.objects.filter(id=row['dean_list_id']).first()
                     if dean_list and not DeanListStudent.objects.filter(dean_list=dean_list, student_id=row['student_id']).exists():
                         DeanListStudent.objects.create(
@@ -3362,10 +3385,14 @@ def restore_database(request):
             try:
                 sqlite_cursor.execute("SELECT * FROM main_course")
                 for row in sqlite_cursor.fetchall():
-                    if not Course.objects.filter(course_code=row['course_code']).exists():
+                    row = dict(row)  # Convert to dict
+                    course_code = row.get('course_code') or row.get('code', '')
+                    course_name = row.get('course_name') or row.get('name', '')
+                    
+                    if course_code and not Course.objects.filter(course_code=course_code).exists():
                         Course.objects.create(
-                            course_code=row['course_code'],
-                            course_name=row['course_name'],
+                            course_code=course_code,
+                            course_name=course_name,
                             credits=row.get('credits', 3),
                             department=row.get('department', ''),
                             instructor=row.get('instructor', ''),
@@ -3380,10 +3407,21 @@ def restore_database(request):
             except Exception as e:
                 messages.warning(request, f'Course import issue: {str(e)}')
             
-            # Close SQLite connection
-            sqlite_conn.close()
-            if tmp_path and os.path.exists(tmp_path):
-                os.unlink(tmp_path)
+            # Close SQLite connection and clean up
+            try:
+                if sqlite_conn:
+                    sqlite_conn.close()
+                    logger.info("SQLite connection closed successfully")
+            except Exception as e:
+                logger.warning(f"Error closing SQLite connection: {e}")
+            
+            # Delete temp file
+            try:
+                if tmp_path and os.path.exists(tmp_path):
+                    os.unlink(tmp_path)
+                    logger.info(f"Temp file deleted: {tmp_path}")
+            except Exception as e:
+                logger.warning(f"Error deleting temp file: {e}")
             
             logger.info("=== DATABASE IMPORT COMPLETED SUCCESSFULLY ===")
             
@@ -3425,24 +3463,27 @@ def restore_database(request):
                             messages.warning(request, line)
             except:
                 pass
-            
+        
+        finally:
+            # ALWAYS close connection and clean up, whether success or error
             # Close SQLite connection if open
             if sqlite_conn:
                 try:
                     sqlite_conn.close()
-                    logger.info("SQLite connection closed")
-                except:
-                    pass
+                    logger.info("SQLite connection closed in finally block")
+                except Exception as e:
+                    logger.warning(f"Error closing connection in finally: {e}")
             
             # Clean up temp file
             if tmp_path and os.path.exists(tmp_path):
                 try:
                     os.unlink(tmp_path)
-                    logger.info(f"Temp file deleted: {tmp_path}")
+                    logger.info(f"Temp file deleted in finally block: {tmp_path}")
                 except Exception as cleanup_error:
-                    logger.warning(f"Could not delete temp file: {cleanup_error}")
-                    pass
+                    logger.warning(f"Could not delete temp file in finally: {cleanup_error}")
             
+        # If we had an error, render the form again
+        if 'e' in locals():
             return render(request, 'frontend/restore_database.html')
     
     # GET request - show the upload form
