@@ -3000,16 +3000,16 @@ def backup_database(request):
 
 @login_required
 def restore_database(request):
-    """Restore database from an uploaded file (SQLite or PostgreSQL).
+    """Merge/Import data from SQLite file into current database.
     
-    Supports:
-    - SQLite to SQLite: Direct file copy
-    - SQLite to PostgreSQL: Automatic conversion via dumpdata/loaddata
-    - PostgreSQL to PostgreSQL: pg_restore
+    Intelligently imports data from uploaded SQLite file:
+    - Only adds records that don't already exist
+    - Preserves existing data
+    - Works with both SQLite and PostgreSQL targets
     """
     # Only superuser or staff can restore database
     if not (request.user.is_superuser or request.user.is_staff):
-        messages.error(request, 'You do not have permission to restore the database.')
+        messages.error(request, 'You do not have permission to import database.')
         return redirect('portal')
     
     # Device detection - block mobile and tablet devices
@@ -3024,12 +3024,10 @@ def restore_database(request):
             from django.conf import settings
             from datetime import datetime
             import os
-            import shutil
             import sqlite3
             import tempfile
-            from django.core.management import call_command
-            from django.db import connections
-            from io import StringIO
+            from django.db import connections, connection
+            import json
 
             # Get the uploaded file
             uploaded_file = request.FILES.get('database_file')
@@ -3038,250 +3036,343 @@ def restore_database(request):
                 messages.error(request, 'No file uploaded.')
                 return render(request, 'frontend/restore_database.html')
 
-            # Detect uploaded file type
-            is_sqlite = uploaded_file.name.endswith(('.sqlite3', '.db', '.sqlite'))
-            is_postgres = uploaded_file.name.endswith(('.backup', '.sql', '.dump'))
-            
-            if not (is_sqlite or is_postgres):
-                messages.error(request, 'Invalid file type. Please upload a SQLite (.sqlite3, .db, .sqlite) or PostgreSQL (.backup, .sql, .dump) database file.')
+            # Only accept SQLite files for merge import
+            if not uploaded_file.name.endswith(('.sqlite3', '.db', '.sqlite')):
+                messages.error(request, 'Please upload a SQLite database file (.sqlite3, .db, or .sqlite).')
                 return render(request, 'frontend/restore_database.html')
 
             # Save uploaded file to temp location
-            with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_file.name)[1]) as tmp_file:
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.sqlite3') as tmp_file:
                 for chunk in uploaded_file.chunks():
                     tmp_file.write(chunk)
                 tmp_path = tmp_file.name
 
-            # Validate SQLite files
-            if is_sqlite:
-                try:
-                    conn = sqlite3.connect(tmp_path)
-                    conn.execute('PRAGMA schema_version;')
-                    conn.close()
-                except sqlite3.Error as exc:
-                    os.unlink(tmp_path)
-                    messages.error(request, f'Uploaded file is not a valid SQLite database: {exc}')
-                    return render(request, 'frontend/restore_database.html')
-
-            db_engine = settings.DATABASES['default']['ENGINE']
-            
-            # Create a backup directory
-            backup_dir = os.path.join(settings.BASE_DIR, 'database_backups')
-            os.makedirs(backup_dir, exist_ok=True)
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            
-            # Case 1: SQLite to SQLite (direct copy)
-            if 'sqlite' in db_engine and is_sqlite:
-                db_path = settings.DATABASES['default']['NAME']
-                backup_path = os.path.join(backup_dir, f'auto_backup_before_restore_{timestamp}.sqlite3')
-                
-                # Copy current database as backup
-                if os.path.exists(db_path):
-                    shutil.copy2(db_path, backup_path)
-                
-                # Ensure no open connections
-                connections.close_all()
-
-                try:
-                    shutil.copy2(tmp_path, db_path)
-                finally:
-                    os.unlink(tmp_path)
-
-                # Run migrations
-                try:
-                    call_command('migrate', interactive=False, verbosity=0)
-                except Exception as migrate_error:
-                    if os.path.exists(backup_path):
-                        shutil.copy2(backup_path, db_path)
-                    connections.close_all()
-                    messages.error(request, f'Restore failed while aligning schema: {migrate_error}')
-                    return render(request, 'frontend/restore_database.html')
-                
-                messages.success(request, 'SQLite database restored successfully!')
-                messages.info(request, f'Backup saved: {backup_path}')
-            
-            # Case 2: SQLite to PostgreSQL (conversion via dumpdata/loaddata)
-            elif ('postgresql' in db_engine or 'psycopg2' in db_engine) and is_sqlite:
-                import subprocess
-                import json
-                
-                messages.info(request, 'Converting SQLite to PostgreSQL... This may take a few minutes.')
-                
-                # Create backup of current PostgreSQL database
-                db_config = settings.DATABASES['default']
-                db_name = db_config['NAME']
-                db_user = db_config['USER']
-                db_password = db_config.get('PASSWORD', '')
-                db_host = db_config.get('HOST', 'localhost')
-                db_port = db_config.get('PORT', '5432')
-                
-                backup_path = os.path.join(backup_dir, f'auto_backup_before_restore_{timestamp}.json')
-                
-                try:
-                    # Step 1: Backup current PostgreSQL data
-                    connections.close_all()
-                    out = StringIO()
-                    call_command('dumpdata', 
-                                '--natural-foreign', 
-                                '--natural-primary',
-                                '--exclude=contenttypes',
-                                '--exclude=auth.permission',
-                                stdout=out)
-                    with open(backup_path, 'w') as f:
-                        f.write(out.getvalue())
-                    
-                    # Step 2: Extract data from SQLite file using temporary database connection
-                    temp_db_config = {
-                        'ENGINE': 'django.db.backends.sqlite3',
-                        'NAME': tmp_path,
-                    }
-                    
-                    # Temporarily add the SQLite database to settings
-                    settings.DATABASES['temp_sqlite'] = temp_db_config
-                    
-                    # Export data from SQLite
-                    json_export_path = os.path.join(backup_dir, f'temp_sqlite_export_{timestamp}.json')
-                    
-                    with open(json_export_path, 'w') as f:
-                        call_command('dumpdata',
-                                    '--database=temp_sqlite',
-                                    '--natural-foreign',
-                                    '--natural-primary',
-                                    '--exclude=contenttypes',
-                                    '--exclude=auth.permission',
-                                    stdout=f)
-                    
-                    # Step 3: Flush current PostgreSQL database
-                    connections.close_all()
-                    call_command('flush', '--noinput', interactive=False)
-                    
-                    # Step 4: Load SQLite data into PostgreSQL
-                    connections.close_all()
-                    call_command('loaddata', json_export_path)
-                    
-                    # Step 5: Run migrations to ensure schema is up to date
-                    call_command('migrate', interactive=False, verbosity=0)
-                    
-                    # Cleanup temporary files
-                    os.unlink(tmp_path)
-                    os.unlink(json_export_path)
-                    
-                    # Remove temporary database from settings
-                    del settings.DATABASES['temp_sqlite']
-                    
-                    messages.success(request, 'SQLite database successfully converted and restored to PostgreSQL!')
-                    messages.info(request, f'JSON backup saved: {backup_path}')
-                    messages.warning(request, 'Please verify all data migrated correctly. Sequences may need reset.')
-                    
-                except Exception as e:
-                    # Cleanup on error
-                    if os.path.exists(tmp_path):
-                        os.unlink(tmp_path)
-                    if 'json_export_path' in locals() and os.path.exists(json_export_path):
-                        os.unlink(json_export_path)
-                    if 'temp_sqlite' in settings.DATABASES:
-                        del settings.DATABASES['temp_sqlite']
-                    
-                    # Try to restore from backup
-                    try:
-                        if os.path.exists(backup_path):
-                            connections.close_all()
-                            call_command('flush', '--noinput', interactive=False)
-                            call_command('loaddata', backup_path)
-                            messages.error(request, f'SQLite to PostgreSQL conversion failed: {str(e)}. Restored from backup.')
-                    except:
-                        messages.error(request, f'SQLite to PostgreSQL conversion failed: {str(e)}. Could not restore backup.')
-                    
-                    return render(request, 'frontend/restore_database.html')
-            
-            # Case 3: PostgreSQL to PostgreSQL (pg_restore)
-            elif ('postgresql' in db_engine or 'psycopg2' in db_engine) and is_postgres:
-                import subprocess
-                
-                db_config = settings.DATABASES['default']
-                db_name = db_config['NAME']
-                db_user = db_config['USER']
-                db_password = db_config.get('PASSWORD', '')
-                db_host = db_config.get('HOST', 'localhost')
-                db_port = db_config.get('PORT', '5432')
-                
-                # Create a backup of current database first
-                backup_path = os.path.join(backup_dir, f'auto_backup_before_restore_{timestamp}.backup')
-                
-                try:
-                    env = os.environ.copy()
-                    if db_password:
-                        env['PGPASSWORD'] = db_password
-                    
-                    # Backup current database
-                    backup_cmd = [
-                        'pg_dump',
-                        '-h', db_host,
-                        '-p', str(db_port),
-                        '-U', db_user,
-                        '-F', 'c',
-                        '-f', backup_path,
-                        db_name
-                    ]
-                    subprocess.run(backup_cmd, env=env, check=True, capture_output=True)
-                    
-                    # Close all connections
-                    connections.close_all()
-                    
-                    # Restore using pg_restore
-                    restore_cmd = [
-                        'pg_restore',
-                        '-h', db_host,
-                        '-p', str(db_port),
-                        '-U', db_user,
-                        '-d', db_name,
-                        '--clean',
-                        '--if-exists',
-                        '--no-owner',
-                        '--no-acl',
-                        tmp_path
-                    ]
-                    
-                    result = subprocess.run(restore_cmd, env=env, capture_output=True, text=True)
-                    
-                    # pg_restore may return warnings but still succeed
-                    if result.returncode not in [0, 1]:
-                        raise Exception(f'pg_restore failed: {result.stderr}')
-                    
-                    os.unlink(tmp_path)
-                    
-                    # Run migrations
-                    try:
-                        call_command('migrate', interactive=False, verbosity=0)
-                    except Exception as migrate_error:
-                        messages.warning(request, f'Migration warning: {migrate_error}')
-                    
-                    messages.success(request, 'PostgreSQL database restored successfully!')
-                    messages.info(request, f'Backup saved: {backup_path}')
-                    
-                except subprocess.CalledProcessError as e:
-                    os.unlink(tmp_path)
-                    messages.error(request, f'PostgreSQL restore failed: {e.stderr if hasattr(e, "stderr") else str(e)}')
-                    return render(request, 'frontend/restore_database.html')
-            
-            # Case 4: Invalid combination (PostgreSQL backup to SQLite)
-            elif 'sqlite' in db_engine and is_postgres:
+            # Validate SQLite file
+            try:
+                conn = sqlite3.connect(tmp_path)
+                cursor = conn.cursor()
+                cursor.execute('PRAGMA schema_version;')
+                conn.close()
+            except sqlite3.Error as exc:
                 os.unlink(tmp_path)
-                messages.error(request, 'Cannot restore PostgreSQL backup to SQLite database. Please upload a SQLite database file.')
+                messages.error(request, f'Uploaded file is not a valid SQLite database: {exc}')
                 return render(request, 'frontend/restore_database.html')
+
+            # Import all models from main app
+            from main.models import (
+                User, Application, MembershipApplication, Event, Attendance,
+                Thread, Reply, DeanList, DeanListStudent, Course, 
+                EventSection, ExchangeApplication
+            )
             
-            else:
-                os.unlink(tmp_path)
-                messages.error(request, f'Database restore is not supported for {db_engine}.')
-                return render(request, 'frontend/restore_database.html')
+            messages.info(request, 'Starting data import... This may take a few minutes.')
             
-            # Redirect to login
-            return redirect('login')
+            # Connect to uploaded SQLite database
+            sqlite_conn = sqlite3.connect(tmp_path)
+            sqlite_conn.row_factory = sqlite3.Row
+            sqlite_cursor = sqlite_conn.cursor()
+            
+            stats = {
+                'users': {'added': 0, 'skipped': 0},
+                'applications': {'added': 0, 'skipped': 0},
+                'membership_apps': {'added': 0, 'skipped': 0},
+                'exchange_apps': {'added': 0, 'skipped': 0},
+                'events': {'added': 0, 'skipped': 0},
+                'attendance': {'added': 0, 'skipped': 0},
+                'threads': {'added': 0, 'skipped': 0},
+                'replies': {'added': 0, 'skipped': 0},
+                'dean_lists': {'added': 0, 'skipped': 0},
+                'dean_students': {'added': 0, 'skipped': 0},
+                'courses': {'added': 0, 'skipped': 0},
+                'event_sections': {'added': 0, 'skipped': 0},
+            }
+            
+            # Import Users (skip if student_id exists)
+            try:
+                sqlite_cursor.execute("SELECT * FROM main_user")
+                for row in sqlite_cursor.fetchall():
+                    if not User.objects.filter(student_id=row['student_id']).exists():
+                        User.objects.create(
+                            student_id=row['student_id'],
+                            password=row['password'],
+                            last_login=row['last_login'],
+                            is_superuser=bool(row['is_superuser']),
+                            username=row['username'],
+                            first_name=row['first_name'],
+                            last_name=row['last_name'],
+                            email=row['email'],
+                            is_staff=bool(row['is_staff']),
+                            is_active=bool(row['is_active']),
+                            date_joined=row['date_joined'],
+                            is_member=bool(row.get('is_member', 0)),
+                            role=row.get('role', 'member')
+                        )
+                        stats['users']['added'] += 1
+                    else:
+                        stats['users']['skipped'] += 1
+            except Exception as e:
+                messages.warning(request, f'User import issue: {str(e)}')
+            
+            # Import Events (skip if title + date exists)
+            try:
+                sqlite_cursor.execute("SELECT * FROM main_event")
+                for row in sqlite_cursor.fetchall():
+                    if not Event.objects.filter(title=row['title'], date=row['date']).exists():
+                        Event.objects.create(
+                            title=row['title'],
+                            description=row.get('description', ''),
+                            date=row['date'],
+                            time=row.get('time'),
+                            location=row.get('location', ''),
+                            created_at=row.get('created_at'),
+                            image=row.get('image', '')
+                        )
+                        stats['events']['added'] += 1
+                    else:
+                        stats['events']['skipped'] += 1
+            except Exception as e:
+                messages.warning(request, f'Event import issue: {str(e)}')
+            
+            # Import Event Sections
+            try:
+                sqlite_cursor.execute("SELECT * FROM main_eventsection")
+                for row in sqlite_cursor.fetchall():
+                    event = Event.objects.filter(title=row['title']).first() if row.get('title') else None
+                    if event and not EventSection.objects.filter(event=event, section_name=row['section_name']).exists():
+                        EventSection.objects.create(
+                            event=event,
+                            section_name=row['section_name']
+                        )
+                        stats['event_sections']['added'] += 1
+                    else:
+                        stats['event_sections']['skipped'] += 1
+            except Exception as e:
+                messages.warning(request, f'Event section import issue: {str(e)}')
+            
+            # Import Applications (skip if student_id + year exists)
+            try:
+                sqlite_cursor.execute("SELECT * FROM main_application")
+                for row in sqlite_cursor.fetchall():
+                    user = User.objects.filter(student_id=row['student_id']).first()
+                    if user and not Application.objects.filter(student_id=row['student_id'], year=row['year']).exists():
+                        Application.objects.create(
+                            student_id=row['student_id'],
+                            full_name=row['full_name'],
+                            email=row['email'],
+                            phone_number=row.get('phone_number', ''),
+                            year=row['year'],
+                            gpa=row.get('gpa'),
+                            major=row.get('major', ''),
+                            minor=row.get('minor', ''),
+                            why_join=row.get('why_join', ''),
+                            what_expect=row.get('what_expect', ''),
+                            what_offer=row.get('what_offer', ''),
+                            extracurricular=row.get('extracurricular', ''),
+                            status=row.get('status', 'pending'),
+                            submitted_at=row.get('submitted_at')
+                        )
+                        stats['applications']['added'] += 1
+                    else:
+                        stats['applications']['skipped'] += 1
+            except Exception as e:
+                messages.warning(request, f'Application import issue: {str(e)}')
+            
+            # Import Membership Applications
+            try:
+                sqlite_cursor.execute("SELECT * FROM main_membershipapplication")
+                for row in sqlite_cursor.fetchall():
+                    user = User.objects.filter(student_id=row['student_id']).first()
+                    if user and not MembershipApplication.objects.filter(student_id=row['student_id'], academic_year=row.get('academic_year', '')).exists():
+                        MembershipApplication.objects.create(
+                            student_id=row['student_id'],
+                            full_name=row['full_name'],
+                            email=row['email'],
+                            academic_year=row.get('academic_year', ''),
+                            gpa=row.get('gpa'),
+                            passed_credits=row.get('passed_credits'),
+                            major=row.get('major', ''),
+                            status=row.get('status', 'pending'),
+                            submitted_at=row.get('submitted_at')
+                        )
+                        stats['membership_apps']['added'] += 1
+                    else:
+                        stats['membership_apps']['skipped'] += 1
+            except Exception as e:
+                messages.warning(request, f'Membership application import issue: {str(e)}')
+            
+            # Import Exchange Applications
+            try:
+                sqlite_cursor.execute("SELECT * FROM main_exchangeapplication")
+                for row in sqlite_cursor.fetchall():
+                    user = User.objects.filter(student_id=row['student_id']).first()
+                    if user and not ExchangeApplication.objects.filter(student_id=row['student_id'], destination_university=row.get('destination_university', '')).exists():
+                        ExchangeApplication.objects.create(
+                            student_id=row['student_id'],
+                            full_name=row['full_name'],
+                            email=row['email'],
+                            phone_number=row.get('phone_number', ''),
+                            current_year=row.get('current_year', ''),
+                            gpa=row.get('gpa'),
+                            major=row.get('major', ''),
+                            destination_university=row.get('destination_university', ''),
+                            program_duration=row.get('program_duration', ''),
+                            preferred_semester=row.get('preferred_semester', ''),
+                            language_proficiency=row.get('language_proficiency', ''),
+                            motivation=row.get('motivation', ''),
+                            academic_goals=row.get('academic_goals', ''),
+                            financial_plan=row.get('financial_plan', ''),
+                            status=row.get('status', 'pending'),
+                            submitted_at=row.get('submitted_at'),
+                            is_archived=bool(row.get('is_archived', 0))
+                        )
+                        stats['exchange_apps']['added'] += 1
+                    else:
+                        stats['exchange_apps']['skipped'] += 1
+            except Exception as e:
+                messages.warning(request, f'Exchange application import issue: {str(e)}')
+            
+            # Import Attendance
+            try:
+                sqlite_cursor.execute("SELECT * FROM main_attendance")
+                for row in sqlite_cursor.fetchall():
+                    event = Event.objects.filter(id=row['event_id']).first()
+                    if event and not Attendance.objects.filter(event=event, student_id=row['student_id']).exists():
+                        section = EventSection.objects.filter(id=row.get('sections_id')).first() if row.get('sections_id') else None
+                        Attendance.objects.create(
+                            event=event,
+                            student_id=row['student_id'],
+                            student_name=row['student_name'],
+                            email=row.get('email', ''),
+                            timestamp=row.get('timestamp'),
+                            sections=section
+                        )
+                        stats['attendance']['added'] += 1
+                    else:
+                        stats['attendance']['skipped'] += 1
+            except Exception as e:
+                messages.warning(request, f'Attendance import issue: {str(e)}')
+            
+            # Import Threads
+            try:
+                sqlite_cursor.execute("SELECT * FROM main_thread")
+                for row in sqlite_cursor.fetchall():
+                    author = User.objects.filter(id=row['author_id']).first()
+                    if author and not Thread.objects.filter(title=row['title'], author=author).exists():
+                        Thread.objects.create(
+                            title=row['title'],
+                            content=row.get('content', ''),
+                            author=author,
+                            created_at=row.get('created_at')
+                        )
+                        stats['threads']['added'] += 1
+                    else:
+                        stats['threads']['skipped'] += 1
+            except Exception as e:
+                messages.warning(request, f'Thread import issue: {str(e)}')
+            
+            # Import Replies
+            try:
+                sqlite_cursor.execute("SELECT * FROM main_reply")
+                for row in sqlite_cursor.fetchall():
+                    thread = Thread.objects.filter(id=row['thread_id']).first()
+                    author = User.objects.filter(id=row['author_id']).first()
+                    if thread and author:
+                        Reply.objects.create(
+                            thread=thread,
+                            content=row.get('content', ''),
+                            author=author,
+                            created_at=row.get('created_at')
+                        )
+                        stats['replies']['added'] += 1
+                    else:
+                        stats['replies']['skipped'] += 1
+            except Exception as e:
+                messages.warning(request, f'Reply import issue: {str(e)}')
+            
+            # Import Dean Lists
+            try:
+                sqlite_cursor.execute("SELECT * FROM main_deanlist")
+                for row in sqlite_cursor.fetchall():
+                    if not DeanList.objects.filter(name=row['name']).exists():
+                        DeanList.objects.create(
+                            name=row['name'],
+                            year=row.get('year', ''),
+                            semester=row.get('semester', ''),
+                            upload_date=row.get('upload_date')
+                        )
+                        stats['dean_lists']['added'] += 1
+                    else:
+                        stats['dean_lists']['skipped'] += 1
+            except Exception as e:
+                messages.warning(request, f'Dean list import issue: {str(e)}')
+            
+            # Import Dean List Students
+            try:
+                sqlite_cursor.execute("SELECT * FROM main_deanliststudent")
+                for row in sqlite_cursor.fetchall():
+                    dean_list = DeanList.objects.filter(id=row['dean_list_id']).first()
+                    if dean_list and not DeanListStudent.objects.filter(dean_list=dean_list, student_id=row['student_id']).exists():
+                        DeanListStudent.objects.create(
+                            dean_list=dean_list,
+                            student_id=row['student_id'],
+                            student_name=row.get('student_name', ''),
+                            gpa=row.get('gpa')
+                        )
+                        stats['dean_students']['added'] += 1
+                    else:
+                        stats['dean_students']['skipped'] += 1
+            except Exception as e:
+                messages.warning(request, f'Dean list student import issue: {str(e)}')
+            
+            # Import Courses
+            try:
+                sqlite_cursor.execute("SELECT * FROM main_course")
+                for row in sqlite_cursor.fetchall():
+                    if not Course.objects.filter(course_code=row['course_code']).exists():
+                        Course.objects.create(
+                            course_code=row['course_code'],
+                            course_name=row['course_name'],
+                            credits=row.get('credits', 3),
+                            department=row.get('department', ''),
+                            instructor=row.get('instructor', ''),
+                            schedule=row.get('schedule', ''),
+                            room=row.get('room', ''),
+                            semester=row.get('semester', ''),
+                            year=row.get('year', '')
+                        )
+                        stats['courses']['added'] += 1
+                    else:
+                        stats['courses']['skipped'] += 1
+            except Exception as e:
+                messages.warning(request, f'Course import issue: {str(e)}')
+            
+            # Close SQLite connection
+            sqlite_conn.close()
+            os.unlink(tmp_path)
+            
+            # Build success message
+            total_added = sum(s['added'] for s in stats.values())
+            total_skipped = sum(s['skipped'] for s in stats.values())
+            
+            messages.success(request, f'✅ Data import completed! Added {total_added} records, skipped {total_skipped} duplicates.')
+            
+            # Detailed stats
+            details = []
+            for model, counts in stats.items():
+                if counts['added'] > 0 or counts['skipped'] > 0:
+                    details.append(f"{model.replace('_', ' ').title()}: +{counts['added']} new, ~{counts['skipped']} existing")
+            
+            if details:
+                messages.info(request, ' | '.join(details))
+            
+            return redirect('portal')
             
         except Exception as e:
             import traceback
-            messages.error(request, f'Error restoring database: {str(e)}')
+            messages.error(request, f'Error importing database: {str(e)}')
             messages.error(request, f'Details: {traceback.format_exc()}')
+            if 'tmp_path' in locals() and os.path.exists(tmp_path):
+                os.unlink(tmp_path)
             return render(request, 'frontend/restore_database.html')
     
     # GET request - show the upload form
@@ -3289,7 +3380,6 @@ def restore_database(request):
     db_engine = settings.DATABASES['default']['ENGINE']
     context = {
         'current_db': 'PostgreSQL' if ('postgresql' in db_engine or 'psycopg2' in db_engine) else 'SQLite',
-        'supports_conversion': True
+        'import_mode': True
     }
     return render(request, 'frontend/restore_database.html', context)
-

@@ -4,24 +4,24 @@
 {% block portal_content %}
 
 <div class="restore-container">
-    <div class="warning-banner">
-        <div class="warning-icon">⚠️</div>
+    <div class="warning-banner" style="background: linear-gradient(135deg, #28a745, #20c997); border-color: #218838;">
+        <div class="warning-icon">✨</div>
         <div class="warning-content">
-            <h2>Database Restore - Critical Operation</h2>
-            <p><strong>WARNING:</strong> This will completely replace your current database with the uploaded file!</p>
+            <h2>Database Import - Smart Merge</h2>
+            <p><strong>SAFE MODE:</strong> This will ADD missing data from your uploaded file without deleting anything!</p>
         </div>
     </div>
 
     <div class="info-box">
-        <h3>⚡ Important Information</h3>
+        <h3>⚡ How It Works</h3>
         <ul>
             <li><strong>Current Database:</strong> <span class="db-badge">{{ current_db }}</span></li>
-            <li><strong>Automatic Conversion:</strong> SQLite files can be automatically converted to PostgreSQL!</li>
-            <li><strong>Automatic Backup:</strong> Your current database will be automatically backed up before restoration</li>
-            <li><strong>Complete Replacement:</strong> All current data will be replaced with the uploaded database</li>
-            <li><strong>Re-login Required:</strong> You will need to log in again after restoration</li>
-            <li><strong>User Credentials:</strong> Use credentials from the restored database</li>
-            <li><strong>Backup Location:</strong> Auto-backups are saved in <code>database_backups/</code> folder</li>
+            <li><strong>Smart Merging:</strong> Only adds records that don't already exist in your database</li>
+            <li><strong>Preserves Existing Data:</strong> Your current data is never touched or deleted</li>
+            <li><strong>No Backups Needed:</strong> Since existing data is preserved, this operation is completely safe</li>
+            <li><strong>Duplicate Detection:</strong> Automatically skips records that already exist (by student ID, event title+date, etc.)</li>
+            <li><strong>Detailed Report:</strong> Shows exactly what was added vs. skipped</li>
+            <li><strong>Multiple Uploads:</strong> You can upload multiple files to merge data from different sources</li>
         </ul>
     </div>
 
@@ -34,39 +34,38 @@
     {% endif %}
 
     <div class="form-container">
-        <h3>Upload Database File</h3>
+        <h3>Upload SQLite Database File</h3>
         <form method="post" enctype="multipart/form-data" id="restoreForm">
             {% csrf_token %}
             
             <div class="form-group">
-                <label for="database_file">Select Database Backup File</label>
+                <label for="database_file">Select SQLite Database File</label>
                 <input 
                     type="file" 
                     id="database_file" 
                     name="database_file" 
-                    accept=".sqlite3,.db,.sqlite,.backup,.sql,.dump"
+                    accept=".sqlite3,.db,.sqlite"
                     required
                 >
                 <small class="form-help">
-                    Supported formats:<br>
-                    • SQLite: .sqlite3, .db, .sqlite<br>
-                    • PostgreSQL: .backup, .sql, .dump
+                    Supported formats: .sqlite3, .db, .sqlite<br>
+                    (e.g., your local development database)
                 </small>
             </div>
 
-            <div class="confirmation-box">
+            <div class="confirmation-box" style="background: linear-gradient(135deg, #d4edda, #c3e6cb); border-color: #28a745;">
                 <input type="checkbox" id="confirmRestore" required>
-                <label for="confirmRestore">
-                    I understand that this will replace the entire current database and I have a backup of my current data
+                <label for="confirmRestore" style="color: #155724;">
+                    I understand that this will merge new data from the uploaded file into my current database
                 </label>
             </div>
 
             <div class="form-actions">
-                <button type="submit" class="btn-danger" id="restoreBtn" disabled>
+                <button type="submit" class="btn-danger" id="restoreBtn" disabled style="background: linear-gradient(135deg, #28a745, #20c997);">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                        <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
                     </svg>
-                    Restore Database
+                    Import / Merge Data
                 </button>
                 
                 <a href="{% url 'portal' %}" class="btn-cancel">
@@ -82,20 +81,20 @@
     <div class="help-box">
         <h3>📋 How to Use</h3>
         <ol>
-            <li><strong>Download Backup First:</strong> Always download a backup before restoring</li>
-            <li><strong>Select File:</strong> Choose your database backup file (SQLite or PostgreSQL format)</li>
-            <li><strong>Automatic Conversion:</strong> If uploading SQLite to PostgreSQL, conversion happens automatically</li>
+            <li><strong>Select File:</strong> Choose your SQLite database file (e.g., db.sqlite3 from local development)</li>
+            <li><strong>Smart Merge:</strong> System automatically detects duplicates and only adds new records</li>
             <li><strong>Confirm:</strong> Check the confirmation box</li>
-            <li><strong>Restore:</strong> Click "Restore Database"</li>
-            <li><strong>Log In:</strong> Use credentials from the restored database</li>
+            <li><strong>Import:</strong> Click "Import / Merge Data"</li>
+            <li><strong>Review Results:</strong> Check the detailed statistics showing what was added vs. skipped</li>
         </ol>
-        <div style="margin-top: 15px; padding: 10px; background: #e8f4f8; border-left: 4px solid #3498db; border-radius: 4px;">
-            <strong>✨ Supported Conversions:</strong><br>
-            • SQLite → SQLite (direct copy)<br>
-            • SQLite → PostgreSQL (automatic conversion via Django)<br>
-            • PostgreSQL → PostgreSQL (pg_restore)<br>
+        <div style="margin-top: 15px; padding: 10px; background: #d4edda; border-left: 4px solid #28a745; border-radius: 4px;">
+            <strong>✨ What Gets Imported:</strong><br>
+            • Users (checked by student_id)<br>
+            • Events (checked by title + date)<br>
+            • Applications (checked by student_id + year)<br>
+            • Attendance, Threads, Dean Lists, Courses, and more!<br>
             <br>
-            <strong>Note:</strong> The system automatically detects file types and performs the appropriate restore/conversion.
+            <strong>🛡️ Safety:</strong> Existing data is NEVER deleted or modified!
         </div>
     </div>
 </div>
@@ -322,9 +321,9 @@
 }
 
 .btn-danger:hover:not(:disabled) {
-    background: linear-gradient(135deg, #a93226, #c0392b);
+    background: linear-gradient(135deg, #218838, #1a9e7a);
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(192, 57, 43, 0.3);
+    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
 }
 
 .btn-danger:disabled {
@@ -356,7 +355,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     form.addEventListener('submit', function(e) {
-        if (!confirm('Are you ABSOLUTELY SURE you want to restore the database? This cannot be undone!')) {
+        if (!confirm('Ready to import data? This will add new records from the uploaded file to your current database.')) {
             e.preventDefault();
         }
     });
