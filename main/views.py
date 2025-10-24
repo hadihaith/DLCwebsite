@@ -3007,63 +3007,88 @@ def restore_database(request):
     - Preserves existing data
     - Works with both SQLite and PostgreSQL targets
     """
+    import traceback
+    import sys
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    
     # Only superuser or staff can restore database
     if not (request.user.is_superuser or request.user.is_staff):
         messages.error(request, 'You do not have permission to import database.')
         return redirect('portal')
     
     # Device detection - block mobile and tablet devices
-    user_agent = parse(request.META.get('HTTP_USER_AGENT', ''))
-    if user_agent.is_mobile or user_agent.is_tablet:
-        return render(request, 'frontend/desktop_only.html', {
-            'device_type': 'mobile device' if user_agent.is_mobile else 'tablet'
-        })
+    try:
+        user_agent = parse(request.META.get('HTTP_USER_AGENT', ''))
+        if user_agent.is_mobile or user_agent.is_tablet:
+            return render(request, 'frontend/desktop_only.html', {
+                'device_type': 'mobile device' if user_agent.is_mobile else 'tablet'
+            })
+    except Exception as e:
+        # If device detection fails, continue anyway
+        logger.warning(f"Device detection error: {e}")
+        pass
     
     if request.method == 'POST':
+        tmp_path = None
         try:
-            from django.conf import settings
-            from datetime import datetime
             import os
             import sqlite3
             import tempfile
-            from django.db import connections, connection
-            import json
+            
+            logger.info("=== DATABASE IMPORT STARTED ===")
+            logger.info(f"User: {request.user.username}")
+            logger.info(f"Files in request: {list(request.FILES.keys())}")
 
             # Get the uploaded file
             uploaded_file = request.FILES.get('database_file')
             
             if not uploaded_file:
                 messages.error(request, 'No file uploaded.')
+                logger.error("No file uploaded")
                 return render(request, 'frontend/restore_database.html')
+
+            logger.info(f"File uploaded: {uploaded_file.name}, size: {uploaded_file.size}")
 
             # Only accept SQLite files for merge import
             if not uploaded_file.name.endswith(('.sqlite3', '.db', '.sqlite')):
                 messages.error(request, 'Please upload a SQLite database file (.sqlite3, .db, or .sqlite).')
+                logger.error(f"Invalid file extension: {uploaded_file.name}")
                 return render(request, 'frontend/restore_database.html')
 
             # Save uploaded file to temp location
+            logger.info("Saving uploaded file to temp location...")
             with tempfile.NamedTemporaryFile(delete=False, suffix='.sqlite3') as tmp_file:
                 for chunk in uploaded_file.chunks():
                     tmp_file.write(chunk)
                 tmp_path = tmp_file.name
+            
+            logger.info(f"Temp file saved to: {tmp_path}")
 
             # Validate SQLite file
+            logger.info("Validating SQLite file...")
             try:
                 conn = sqlite3.connect(tmp_path)
                 cursor = conn.cursor()
                 cursor.execute('PRAGMA schema_version;')
                 conn.close()
+                logger.info("SQLite file is valid")
             except sqlite3.Error as exc:
-                os.unlink(tmp_path)
+                if tmp_path and os.path.exists(tmp_path):
+                    os.unlink(tmp_path)
                 messages.error(request, f'Uploaded file is not a valid SQLite database: {exc}')
+                logger.error(f"Invalid SQLite file: {exc}")
                 return render(request, 'frontend/restore_database.html')
 
             # Import all models from main app
+            logger.info("Importing models...")
             from main.models import (
                 User, Application, Event, Attendance,
                 Thread, Reply, DeanList, DeanListStudent, Course, 
                 EventSection, ExchangeApplication, PartnerUniversity
             )
+            logger.info("Models imported successfully")
             
             messages.info(request, 'Starting data import... This may take a few minutes.')
             
@@ -3356,7 +3381,10 @@ def restore_database(request):
             
             # Close SQLite connection
             sqlite_conn.close()
-            os.unlink(tmp_path)
+            if tmp_path and os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+            
+            logger.info("=== DATABASE IMPORT COMPLETED SUCCESSFULLY ===")
             
             # Build success message
             total_added = sum(s['added'] for s in stats.values())
@@ -3377,13 +3405,37 @@ def restore_database(request):
             
         except Exception as e:
             import traceback
-            messages.error(request, f'Error importing database: {str(e)}')
-            messages.error(request, f'Details: {traceback.format_exc()}')
-            if 'tmp_path' in locals() and os.path.exists(tmp_path):
-                os.unlink(tmp_path)
+            from django.conf import settings
+            error_trace = traceback.format_exc()
+            
+            logger.error("=== DATABASE IMPORT ERROR ===")
+            logger.error(f"Error type: {type(e).__name__}")
+            logger.error(f"Error message: {str(e)}")
+            logger.error(f"Full traceback:\n{error_trace}")
+            logger.error("=== END ERROR ===")
+            
+            messages.error(request, f'❌ Error importing database: {type(e).__name__}: {str(e)}')
+            
+            # Show traceback in development only
+            try:
+                if settings.DEBUG:
+                    for line in error_trace.split('\n')[:10]:  # First 10 lines
+                        if line.strip():
+                            messages.warning(request, line)
+            except:
+                pass
+            
+            # Clean up temp file
+            if tmp_path and os.path.exists(tmp_path):
+                try:
+                    os.unlink(tmp_path)
+                except:
+                    pass
+            
             return render(request, 'frontend/restore_database.html')
     
     # GET request - show the upload form
+    logger.info("Showing database import form")
     from django.conf import settings
     db_engine = settings.DATABASES['default']['ENGINE']
     context = {
