@@ -451,7 +451,7 @@ def parking_management(request):
     
     for app in all_applications:
         # Check eligibility criteria
-        gpa_check = app.gpa >= Decimal('3.67')
+        gpa_check = app.gpa >= Decimal('3.5')
         license_check = app.has_kuwaiti_license
         
         # Check if in latest Dean's List
@@ -483,7 +483,7 @@ def parking_management(request):
     
     for app in applications:
         # Check all eligibility criteria
-        gpa_check = app.gpa >= Decimal('3.67')
+        gpa_check = app.gpa >= Decimal('3.5')
         license_check = app.has_kuwaiti_license
         
         deans_list_check = False
@@ -504,7 +504,7 @@ def parking_management(request):
         # Determine rejection reasons
         rejection_reasons = []
         if not gpa_check:
-            rejection_reasons.append(f"GPA below 3.67 ({app.gpa})")
+            rejection_reasons.append(f"GPA below 3.5 ({app.gpa})")
         if not license_check:
             rejection_reasons.append("No Kuwaiti driver's license")
         if not deans_list_check:

@@ -162,7 +162,7 @@ class ParkingApplicationForm(forms.ModelForm):
             'student_id': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter your student ID'}),
             'student_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter your full name'}),
             'phone': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter your phone number'}),
-            'gpa': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '4.00', 'placeholder': '3.67 or higher'}),
+            'gpa': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '4.00', 'placeholder': '3.5 or higher'}),
             'completed_credits': forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'placeholder': 'e.g., 60'}),
             'major': forms.Select(attrs={'class': 'form-select'}),
             'has_kuwaiti_license': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
@@ -170,8 +170,8 @@ class ParkingApplicationForm(forms.ModelForm):
 
     def clean_gpa(self):
         gpa = self.cleaned_data.get('gpa')
-        if gpa is not None and gpa < 3.67:
-            raise forms.ValidationError('GPA must be 3.67 or higher to qualify for parking.')
+        if gpa is not None and gpa < 3.5:
+            raise forms.ValidationError('GPA must be 3.5 or higher to qualify for parking.')
         return gpa
 
     def clean_has_kuwaiti_license(self):
