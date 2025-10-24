@@ -1,1 +1,1 @@
-web: python manage.py collectstatic --noinput && python manage.py migrate && gunicorn Dlcweb.wsgi:application
+web: python manage.py collectstatic --noinput && python manage.py migrate && python manage.py create_admin && gunicorn Dlcweb.wsgi:application
