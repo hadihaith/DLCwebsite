@@ -3060,7 +3060,7 @@ def restore_database(request):
 
             # Import all models from main app
             from main.models import (
-                User, Application, MembershipApplication, Event, Attendance,
+                User, Application, Event, Attendance,
                 Thread, Reply, DeanList, DeanListStudent, Course, 
                 EventSection, ExchangeApplication
             )
@@ -3075,7 +3075,6 @@ def restore_database(request):
             stats = {
                 'users': {'added': 0, 'skipped': 0},
                 'applications': {'added': 0, 'skipped': 0},
-                'membership_apps': {'added': 0, 'skipped': 0},
                 'exchange_apps': {'added': 0, 'skipped': 0},
                 'events': {'added': 0, 'skipped': 0},
                 'attendance': {'added': 0, 'skipped': 0},
@@ -3176,29 +3175,6 @@ def restore_database(request):
                         stats['applications']['skipped'] += 1
             except Exception as e:
                 messages.warning(request, f'Application import issue: {str(e)}')
-            
-            # Import Membership Applications
-            try:
-                sqlite_cursor.execute("SELECT * FROM main_membershipapplication")
-                for row in sqlite_cursor.fetchall():
-                    user = User.objects.filter(student_id=row['student_id']).first()
-                    if user and not MembershipApplication.objects.filter(student_id=row['student_id'], academic_year=row.get('academic_year', '')).exists():
-                        MembershipApplication.objects.create(
-                            student_id=row['student_id'],
-                            full_name=row['full_name'],
-                            email=row['email'],
-                            academic_year=row.get('academic_year', ''),
-                            gpa=row.get('gpa'),
-                            passed_credits=row.get('passed_credits'),
-                            major=row.get('major', ''),
-                            status=row.get('status', 'pending'),
-                            submitted_at=row.get('submitted_at')
-                        )
-                        stats['membership_apps']['added'] += 1
-                    else:
-                        stats['membership_apps']['skipped'] += 1
-            except Exception as e:
-                messages.warning(request, f'Membership application import issue: {str(e)}')
             
             # Import Exchange Applications
             try:
