@@ -3062,7 +3062,7 @@ def restore_database(request):
             from main.models import (
                 User, Application, Event, Attendance,
                 Thread, Reply, DeanList, DeanListStudent, Course, 
-                EventSection, ExchangeApplication
+                EventSection, ExchangeApplication, PartnerUniversity
             )
             
             messages.info(request, 'Starting data import... This may take a few minutes.')
@@ -3136,39 +3136,44 @@ def restore_database(request):
             try:
                 sqlite_cursor.execute("SELECT * FROM main_eventsection")
                 for row in sqlite_cursor.fetchall():
-                    event = Event.objects.filter(title=row['title']).first() if row.get('title') else None
-                    if event and not EventSection.objects.filter(event=event, section_name=row['section_name']).exists():
-                        EventSection.objects.create(
-                            event=event,
-                            section_name=row['section_name']
-                        )
-                        stats['event_sections']['added'] += 1
-                    else:
-                        stats['event_sections']['skipped'] += 1
+                    # Find event by ID from the event we just imported
+                    event_id = row.get('event_id')
+                    if event_id:
+                        # Try to find the event by title since IDs won't match
+                        sqlite_cursor.execute("SELECT title, date FROM main_event WHERE id = ?", (event_id,))
+                        event_data = sqlite_cursor.fetchone()
+                        if event_data:
+                            event = Event.objects.filter(title=event_data['title'], date=event_data['date']).first()
+                            if event:
+                                section_code = row.get('section_code', '')
+                                if not EventSection.objects.filter(event=event, section_code=section_code).exists():
+                                    EventSection.objects.create(
+                                        event=event,
+                                        section_code=section_code,
+                                        professor_name=row.get('professor_name', '')
+                                    )
+                                    stats['event_sections']['added'] += 1
+                                else:
+                                    stats['event_sections']['skipped'] += 1
             except Exception as e:
                 messages.warning(request, f'Event section import issue: {str(e)}')
             
-            # Import Applications (skip if student_id + year exists)
+            # Import Applications (skip if student_id exists for the same academic year)
             try:
                 sqlite_cursor.execute("SELECT * FROM main_application")
                 for row in sqlite_cursor.fetchall():
-                    user = User.objects.filter(student_id=row['student_id']).first()
-                    if user and not Application.objects.filter(student_id=row['student_id'], year=row['year']).exists():
+                    student_id = row.get('student_id', '')
+                    # Use time_submitted year to avoid duplicates from same year
+                    if student_id and not Application.objects.filter(student_id=student_id).exists():
                         Application.objects.create(
-                            student_id=row['student_id'],
-                            full_name=row['full_name'],
-                            email=row['email'],
-                            phone_number=row.get('phone_number', ''),
-                            year=row['year'],
-                            gpa=row.get('gpa'),
+                            student_id=student_id,
+                            name=row.get('name', ''),
+                            email=row.get('email', ''),
+                            phone=row.get('phone', ''),
+                            passed_credits=row.get('passed_credits', 0),
+                            GPA=row.get('GPA', 0.0),
                             major=row.get('major', ''),
-                            minor=row.get('minor', ''),
-                            why_join=row.get('why_join', ''),
-                            what_expect=row.get('what_expect', ''),
-                            what_offer=row.get('what_offer', ''),
-                            extracurricular=row.get('extracurricular', ''),
-                            status=row.get('status', 'pending'),
-                            submitted_at=row.get('submitted_at')
+                            anything_else=row.get('anything_else', '')
                         )
                         stats['applications']['added'] += 1
                     else:
@@ -3180,30 +3185,55 @@ def restore_database(request):
             try:
                 sqlite_cursor.execute("SELECT * FROM main_exchangeapplication")
                 for row in sqlite_cursor.fetchall():
-                    user = User.objects.filter(student_id=row['student_id']).first()
-                    if user and not ExchangeApplication.objects.filter(student_id=row['student_id'], destination_university=row.get('destination_university', '')).exists():
-                        ExchangeApplication.objects.create(
-                            student_id=row['student_id'],
-                            full_name=row['full_name'],
-                            email=row['email'],
-                            phone_number=row.get('phone_number', ''),
-                            current_year=row.get('current_year', ''),
-                            gpa=row.get('gpa'),
-                            major=row.get('major', ''),
-                            destination_university=row.get('destination_university', ''),
-                            program_duration=row.get('program_duration', ''),
-                            preferred_semester=row.get('preferred_semester', ''),
-                            language_proficiency=row.get('language_proficiency', ''),
-                            motivation=row.get('motivation', ''),
-                            academic_goals=row.get('academic_goals', ''),
-                            financial_plan=row.get('financial_plan', ''),
-                            status=row.get('status', 'pending'),
-                            submitted_at=row.get('submitted_at'),
-                            is_archived=bool(row.get('is_archived', 0))
-                        )
-                        stats['exchange_apps']['added'] += 1
-                    else:
-                        stats['exchange_apps']['skipped'] += 1
+                    email = row.get('email', '')
+                    passport_number = row.get('passport_number', '')
+                    
+                    # Skip if duplicate (check by email and passport)
+                    if email and passport_number:
+                        if not ExchangeApplication.objects.filter(email=email, passport_number=passport_number).exists():
+                            # Get or create partner university
+                            home_institution_id = row.get('home_institution_id')
+                            partner_uni = None
+                            if home_institution_id:
+                                # Try to find partner university from source DB
+                                try:
+                                    sqlite_cursor.execute("SELECT * FROM main_partneruniversity WHERE id = ?", (home_institution_id,))
+                                    uni_data = sqlite_cursor.fetchone()
+                                    if uni_data:
+                                        from main.models import PartnerUniversity
+                                        partner_uni, _ = PartnerUniversity.objects.get_or_create(
+                                            university_name=uni_data.get('university_name', ''),
+                                            defaults={
+                                                'country': uni_data.get('country', ''),
+                                                'city': uni_data.get('city', ''),
+                                                'website_url': uni_data.get('website_url', ''),
+                                                'contact_email': uni_data.get('contact_email', '')
+                                            }
+                                        )
+                                except:
+                                    pass
+                            
+                            if partner_uni:  # Only import if we have a valid home institution
+                                ExchangeApplication.objects.create(
+                                    first_name=row.get('first_name', ''),
+                                    last_name=row.get('last_name', ''),
+                                    date_of_birth=row.get('date_of_birth'),
+                                    home_institution=partner_uni,
+                                    home_major=row.get('home_major', ''),
+                                    program_level=row.get('program_level', 'UNDERGRADUATE'),
+                                    exchange_semester=row.get('exchange_semester', 'FALL'),
+                                    exchange_academic_year=row.get('exchange_academic_year', ''),
+                                    gender=row.get('gender', 'OTHER'),
+                                    passport_number=passport_number,
+                                    passport_expiry_date=row.get('passport_expiry_date'),
+                                    email=email,
+                                    completed_credits=row.get('completed_credits', 0)
+                                )
+                                stats['exchange_apps']['added'] += 1
+                            else:
+                                stats['exchange_apps']['skipped'] += 1
+                        else:
+                            stats['exchange_apps']['skipped'] += 1
             except Exception as e:
                 messages.warning(request, f'Exchange application import issue: {str(e)}')
             
@@ -3211,20 +3241,38 @@ def restore_database(request):
             try:
                 sqlite_cursor.execute("SELECT * FROM main_attendance")
                 for row in sqlite_cursor.fetchall():
-                    event = Event.objects.filter(id=row['event_id']).first()
-                    if event and not Attendance.objects.filter(event=event, student_id=row['student_id']).exists():
-                        section = EventSection.objects.filter(id=row.get('sections_id')).first() if row.get('sections_id') else None
-                        Attendance.objects.create(
-                            event=event,
-                            student_id=row['student_id'],
-                            student_name=row['student_name'],
-                            email=row.get('email', ''),
-                            timestamp=row.get('timestamp'),
-                            sections=section
-                        )
-                        stats['attendance']['added'] += 1
-                    else:
-                        stats['attendance']['skipped'] += 1
+                    # Find event by looking up the event from source DB and matching by title/date
+                    event_id = row.get('event_id')
+                    if event_id:
+                        sqlite_cursor.execute("SELECT title, date FROM main_event WHERE id = ?", (event_id,))
+                        event_data = sqlite_cursor.fetchone()
+                        if event_data:
+                            event = Event.objects.filter(title=event_data['title'], date=event_data['date']).first()
+                            if event:
+                                student_id = row.get('student_id', '')
+                                if student_id and not Attendance.objects.filter(event=event, student_id=student_id).exists():
+                                    # Find section if it exists
+                                    section = None
+                                    section_id = row.get('sections_id')
+                                    if section_id:
+                                        sqlite_cursor.execute("SELECT section_code FROM main_eventsection WHERE id = ?", (section_id,))
+                                        section_data = sqlite_cursor.fetchone()
+                                        if section_data:
+                                            section = EventSection.objects.filter(
+                                                event=event,
+                                                section_code=section_data['section_code']
+                                            ).first()
+                                    
+                                    Attendance.objects.create(
+                                        event=event,
+                                        student_id=student_id,
+                                        student_name=row.get('student_name', ''),
+                                        email=row.get('email', ''),
+                                        sections=section
+                                    )
+                                    stats['attendance']['added'] += 1
+                                else:
+                                    stats['attendance']['skipped'] += 1
             except Exception as e:
                 messages.warning(request, f'Attendance import issue: {str(e)}')
             
@@ -3232,17 +3280,24 @@ def restore_database(request):
             try:
                 sqlite_cursor.execute("SELECT * FROM main_thread")
                 for row in sqlite_cursor.fetchall():
-                    author = User.objects.filter(id=row['author_id']).first()
-                    if author and not Thread.objects.filter(title=row['title'], author=author).exists():
-                        Thread.objects.create(
-                            title=row['title'],
-                            content=row.get('content', ''),
-                            author=author,
-                            created_at=row.get('created_at')
-                        )
-                        stats['threads']['added'] += 1
-                    else:
-                        stats['threads']['skipped'] += 1
+                    # Find author by looking up in source DB and matching by student_id
+                    author_id = row.get('author_id')
+                    if author_id:
+                        sqlite_cursor.execute("SELECT student_id FROM main_user WHERE id = ?", (author_id,))
+                        author_data = sqlite_cursor.fetchone()
+                        if author_data:
+                            author = User.objects.filter(student_id=author_data['student_id']).first()
+                            if author:
+                                title = row.get('title', '')
+                                if title and not Thread.objects.filter(title=title, author=author).exists():
+                                    Thread.objects.create(
+                                        title=title,
+                                        content=row.get('content', ''),
+                                        author=author
+                                    )
+                                    stats['threads']['added'] += 1
+                                else:
+                                    stats['threads']['skipped'] += 1
             except Exception as e:
                 messages.warning(request, f'Thread import issue: {str(e)}')
             
@@ -3250,18 +3305,39 @@ def restore_database(request):
             try:
                 sqlite_cursor.execute("SELECT * FROM main_reply")
                 for row in sqlite_cursor.fetchall():
-                    thread = Thread.objects.filter(id=row['thread_id']).first()
-                    author = User.objects.filter(id=row['author_id']).first()
-                    if thread and author:
-                        Reply.objects.create(
-                            thread=thread,
-                            content=row.get('content', ''),
-                            author=author,
-                            created_at=row.get('created_at')
-                        )
-                        stats['replies']['added'] += 1
-                    else:
-                        stats['replies']['skipped'] += 1
+                    # Find thread by looking up in source DB
+                    thread_id = row.get('thread_id')
+                    author_id = row.get('author_id')
+                    
+                    if thread_id and author_id:
+                        # Get thread title from source
+                        sqlite_cursor.execute("SELECT title, author_id FROM main_thread WHERE id = ?", (thread_id,))
+                        thread_data = sqlite_cursor.fetchone()
+                        
+                        # Get author student_id from source
+                        sqlite_cursor.execute("SELECT student_id FROM main_user WHERE id = ?", (author_id,))
+                        author_data = sqlite_cursor.fetchone()
+                        
+                        if thread_data and author_data:
+                            # Get thread author student_id
+                            sqlite_cursor.execute("SELECT student_id FROM main_user WHERE id = ?", (thread_data['author_id'],))
+                            thread_author_data = sqlite_cursor.fetchone()
+                            
+                            if thread_author_data:
+                                thread_author = User.objects.filter(student_id=thread_author_data['student_id']).first()
+                                if thread_author:
+                                    thread = Thread.objects.filter(title=thread_data['title'], author=thread_author).first()
+                                    author = User.objects.filter(student_id=author_data['student_id']).first()
+                                    
+                                    if thread and author:
+                                        Reply.objects.create(
+                                            thread=thread,
+                                            content=row.get('content', ''),
+                                            author=author
+                                        )
+                                        stats['replies']['added'] += 1
+                                    else:
+                                        stats['replies']['skipped'] += 1
             except Exception as e:
                 messages.warning(request, f'Reply import issue: {str(e)}')
             
