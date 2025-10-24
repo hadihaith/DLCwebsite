@@ -436,9 +436,35 @@ More comprehensive version at shenanigans.shoghisimon.ca/collection/css
   }
   
   .ku-icon {
-    width: 100px;
-    height: 89px;
+    width: 70px;
+    height: auto;
+    object-fit: contain;
     transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  }
+  
+  /* Responsive sizing for mobile devices */
+  @media (max-width: 768px) {
+    .ku-icon {
+      width: 60px;
+      height: auto;
+    }
+    
+    .brutalist-button:hover .ku-icon {
+      width: 45px;
+      height: auto;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .ku-icon {
+      width: 55px;
+      height: auto;
+    }
+    
+    .brutalist-button:hover .ku-icon {
+      width: 40px;
+      height: auto;
+    }
   }
   
   .ku-text {
@@ -478,8 +504,8 @@ More comprehensive version at shenanigans.shoghisimon.ca/collection/css
   }
   
   .brutalist-button:hover .ku-icon {
-    width: 60px;
-    height: 60px;
+    width: 50px;
+    height: auto;
   }
   
   .brutalist-button:hover .button-text,
@@ -497,5 +523,99 @@ More comprehensive version at shenanigans.shoghisimon.ca/collection/css
   .brutalist-button:active .ku-text,
   .brutalist-button:active .button-text {
     transform: scale(0.95);
+  }
+  
+  /* DLC Logo Animation */
+  @keyframes gentle-float {
+    0%, 100% {
+      transform: translateY(0px);
+    }
+    50% {
+      transform: translateY(-5px);
+    }
+  }
+  
+  @keyframes gentle-float-hover {
+    0%, 100% {
+      transform: translateY(0px);
+    }
+    50% {
+      transform: translateY(-5px);
+    }
+  }
+  
+  @keyframes spin-on-hover {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  
+  @keyframes subtle-glow {
+    0%, 100% {
+      box-shadow: 0 0 5px rgba(255, 255, 255, 0.2);
+    }
+    50% {
+      box-shadow: 0 0 10px rgba(255, 255, 255, 0.4),
+                  0 0 15px rgba(74, 46, 95, 0.3);
+    }
+  }
+  
+  @keyframes pulse-glow {
+    0%, 100% {
+      box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+    }
+    50% {
+      box-shadow: 0 0 20px rgba(255, 255, 255, 0.6),
+                  0 0 30px rgba(74, 46, 95, 0.5);
+    }
+  }
+  
+  /* Optimize glow animations - use opacity instead of box-shadow when possible for better performance */
+  @media (max-width: 768px) {
+    @keyframes subtle-glow {
+      0%, 100% {
+        opacity: 0.9;
+      }
+      50% {
+        opacity: 1;
+      }
+    }
+  }
+  
+  .dlc-logo-animated {
+    cursor: pointer;
+    animation: gentle-float 3s ease-in-out infinite,
+               subtle-glow 2s ease-in-out infinite;
+    will-change: transform; /* Optimize animation performance */
+  }
+  
+  .dlc-logo-animated:hover {
+    animation: gentle-float-hover 3s ease-in-out infinite,
+               pulse-glow 1.5s ease-in-out infinite,
+               spin-on-hover 0.6s ease-in-out;
+  }
+  
+  /* Reduce animations on mobile for better performance */
+  @media (max-width: 768px) {
+    .dlc-logo-animated {
+      animation: none; /* Disable continuous animations on mobile */
+    }
+    .dlc-logo-animated:hover {
+      animation: spin-on-hover 0.6s ease-in-out;
+    }
+  }
+  
+  /* Respect user's preference for reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    .dlc-logo-animated {
+      animation: none;
+    }
+    .dlc-logo-animated:hover {
+      transform: rotate(15deg);
+      transition: transform 0.3s ease;
+    }
   }
   

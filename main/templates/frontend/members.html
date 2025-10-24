@@ -5,8 +5,8 @@
 {% block content %}
 <link rel="stylesheet" href="{% static 'frontend/assets/css/members.css' %}">
 
-    <div class="mmcontainer" style="width: 100%; height: 100%;  margin-top: 2em;">
-<div class="container-fluid" style="margin-top: 2em; z-index: 1; position: relative; padding: 30px; max-width: 100%;">
+    <div class="mmcontainer" style="width: 100%; height: 100%;">
+<div class="container-fluid" style="z-index: 1; position: relative; padding: 30px; max-width: 100%;">
     <h1 style="text-align: center;color: white;">Our Beloved Members</h1>
     <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin: 30px auto; padding: 0 10px; width: 100%;">
         {% for member in members %}

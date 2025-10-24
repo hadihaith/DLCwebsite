@@ -22,12 +22,23 @@
     <link rel="stylesheet" href="{% static 'frontend/assets/css/bss-overrides.css' %}">
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <style>
+        /* Ensure content doesn't go under fixed navbar */
+        body {
+            padding-top: 103px;
+        }
+        
+        /* Portal pages already handle their own spacing */
+        .dashboard {
+            padding-top: 0;
+        }
+    </style>
 
 </head>
 
 <body>
-    <nav class="navbar navbar-expand-md fixed-top py-3 navbar-shrink" id="mainNav" style="height: 103px;background: rgb(74, 46, 95);color: var(--bs-primary);box-shadow: 0px -3px 10px 10px var(--bs-navbar-active-color); position: relative; z-index: 1000;">
-        <div class="container" style="width: 100%;"><img class="img-fluid" width="996" height="996" src="{% static 'frontend/assets/img/DLCLogo.png' %}" style="width: 72px;background: var(--bs-light);padding: 5px;margin-right: 10px;border-radius: 94px;"><a class="navbar-brand d-flex align-items-center" href="{% url 'home' %}"><span style="text-align: center;transform: scale(1);margin: 0;margin-left: 0;color: var(--bs-light);font-family: 'Noto Sans Old South Arabian', sans-serif;">Dean's List Council</span></a><button data-bs-toggle="collapse" class="navbar-toggler" data-bs-target="#navcol-1"><span class="visually-hidden">Toggle navigation</span><span class="navbar-toggler-icon"></span></button>
+    <nav class="navbar navbar-expand-md fixed-top py-3 navbar-shrink" id="mainNav" style="height: 103px;background: rgb(74, 46, 95);color: var(--bs-primary);box-shadow: 0px -3px 10px 10px var(--bs-navbar-active-color); position: fixed; z-index: 1000;">
+        <div class="container" style="width: 100%;"><img class="img-fluid dlc-logo-animated" width="996" height="996" src="{% static 'frontend/assets/img/DLCLogo.png' %}" style="width: 72px;background: var(--bs-light);padding: 5px;margin-right: 10px;border-radius: 94px;"><a class="navbar-brand d-flex align-items-center" href="{% url 'home' %}"><span style="text-align: center;transform: scale(1);margin: 0;margin-left: 0;color: var(--bs-light);font-family: 'Noto Sans Old South Arabian', sans-serif;">Dean's List Council</span></a><button data-bs-toggle="collapse" class="navbar-toggler" data-bs-target="#navcol-1"><span class="visually-hidden">Toggle navigation</span><span class="navbar-toggler-icon"></span></button>
             
         </div>
         <div class="collapse navbar-collapse" id="navcol-1" style="width: 100%; background-color: #4A2E5F; text-align: center; z-index: 1000;">
@@ -36,7 +47,7 @@
                 <li class="nav-item"><a class="nav-link" href="{% url 'members' %}" style="color: rgba(255,255,255,0.65);"><span style="color: rgba(255, 255, 255, 0.8);"><i class="fas fa-users" style="margin-right: 8px;"></i>Members</span></a></li>
                 <li class="nav-item"><a class="nav-link" href="{% url 'deanslist' %}" style="color: rgba(255,255,255,0.65);"><i class="fas fa-star" style="margin-right: 8px;"></i><span style="white-space: nowrap;">Dean's List</span></a></li>
                 <li class="nav-item"><a class="nav-link" href="{% url 'events' %}" style="color: rgba(255,255,255,0.65);"><i class="fas fa-calendar-alt" style="margin-right: 8px;"></i>Events</a></li>
-                <li class="nav-item"><a class="nav-link" href="{% url 'exchange_program' %}" style="color: rgba(255,255,255,0.65);"><i class="fas fa-plane-departure" style="margin-right: 8px;"></i>Exchange Program</a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url 'exchange_program' %}" style="color: rgba(255,255,255,0.65);"><i class="fas fa-plane-departure" style="margin-right: 8px;"></i><span style="white-space: nowrap;">Exchange Program</span></a></li>
                 <li class="nav-item"><a class="nav-link" href="{% url 'parking_application' %}" style="color: rgba(255,255,255,0.65);"><i class="fas fa-parking" style="margin-right: 8px;"></i>Parking</a></li>
                 <li class="nav-item"><a class="nav-link" href="{% url 'resources' %}" style="color: rgba(255,255,255,0.65);"><i class="fas fa-book" style="margin-right: 8px;"></i>Resources</a></li>
                 <li class="nav-item"><a class="nav-link" href="{% url 'contact' %}" style="color: rgba(255,255,255,0.65);"><i class="fas fa-envelope" style="margin-right: 8px;"></i>Contact</a></li>
@@ -54,7 +65,7 @@
             <div class="button-container" style=" margin-right: 20px; margin-left: auto; float: right;">
                 <a href="https://www.ku.edu.kw/" target="_blank" class="brutalist-button ku button-1">
               <div class="ku-logo" style="background-color: rgba(0,0,0,0);">
-                  <img class="ku-icon" id="logo" src="{% static "img/ku.png" %}" alt="KU" style="width: 100%; background-color: rgba(0,0,0,0);"/>
+                  <img class="ku-icon" id="logo" src="{% static "img/ku.png" %}" alt="KU" style="background-color: rgba(0,0,0,0);"/>
                 </svg>
               </div>
               <div style="background-color: rgba(0,0,0,0);" class="button-text">

@@ -24,6 +24,13 @@
             height: 100%;
             object-fit: cover;
             transform: translateZ(0);
+            will-change: auto; /* Optimize GPU usage */
+        }
+        /* Mobile fallback background */
+        @media (max-width: 768px) {
+            .bg-container .bg-video {
+                background: linear-gradient(135deg, rgba(74, 46, 95, 0.1) 0%, rgba(74, 46, 95, 0.05) 100%);
+            }
         }
         .bg-container > :not(.bg-video) {
             position: relative;
@@ -31,10 +38,22 @@
         }
     </style>
     <div class="bg-video" aria-hidden="true">
-        <video autoplay muted loop playsinline>
+        <video autoplay muted loop playsinline preload="auto" loading="lazy">
             <source src="{% static 'frontend/assets/video/bg.mp4' %}" type="video/mp4">
         </video>
     </div>
+    <script>
+        // Disable video on mobile devices for better performance
+        if (window.innerWidth <= 768 || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+            const video = document.querySelector('.bg-video video');
+            if (video) {
+                video.pause();
+                video.remove();
+                // Replace with static background
+                document.querySelector('.bg-video').style.background = 'linear-gradient(135deg, rgba(74, 46, 95, 0.1) 0%, rgba(74, 46, 95, 0.05) 100%)';
+            }
+        }
+    </script>
     <header class="pt-5">
         <div class="container pt-4 pt-xl-5">
             <div class="row pt-5">

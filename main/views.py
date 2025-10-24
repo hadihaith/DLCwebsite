@@ -2902,7 +2902,7 @@ def export_event_sections(request, pk):
 
 @login_required
 def backup_database(request):
-    """Download the SQLite database file as a backup."""
+    """Download database backup (supports SQLite and PostgreSQL)."""
     # Only superuser or staff can backup database
     if not (request.user.is_superuser or request.user.is_staff):
         messages.error(request, 'You do not have permission to backup the database.')
@@ -2912,32 +2912,86 @@ def backup_database(request):
         from django.conf import settings
         from datetime import datetime
         import os
+        import subprocess
+        import tempfile
         
-        # Get the database path
-        db_path = settings.DATABASES['default']['NAME']
-        
-        # Check if using SQLite
-        if 'sqlite' not in settings.DATABASES['default']['ENGINE']:
-            messages.error(request, 'Database backup is only available for SQLite databases.')
-            return redirect('portal')
-        
-        # Check if database file exists
-        if not os.path.exists(db_path):
-            messages.error(request, 'Database file not found.')
-            return redirect('portal')
-        
-        # Read the database file
-        with open(db_path, 'rb') as db_file:
-            db_content = db_file.read()
-        
-        # Create response with database file
-        response = HttpResponse(db_content, content_type='application/x-sqlite3')
+        db_engine = settings.DATABASES['default']['ENGINE']
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        response['Content-Disposition'] = f'attachment; filename="dlc_database_backup_{timestamp}.sqlite3"'
         
-        messages.success(request, f'Database backup downloaded successfully!')
+        # SQLite backup
+        if 'sqlite' in db_engine:
+            db_path = settings.DATABASES['default']['NAME']
+            
+            # Check if database file exists
+            if not os.path.exists(db_path):
+                messages.error(request, 'Database file not found.')
+                return redirect('portal')
+            
+            # Read the database file
+            with open(db_path, 'rb') as db_file:
+                db_content = db_file.read()
+            
+            # Create response with database file
+            response = HttpResponse(db_content, content_type='application/x-sqlite3')
+            response['Content-Disposition'] = f'attachment; filename="dlc_database_backup_{timestamp}.sqlite3"'
+            
+            messages.success(request, f'Database backup downloaded successfully!')
+            return response
         
-        return response
+        # PostgreSQL backup
+        elif 'postgresql' in db_engine or 'psycopg2' in db_engine:
+            db_config = settings.DATABASES['default']
+            db_name = db_config['NAME']
+            db_user = db_config['USER']
+            db_password = db_config.get('PASSWORD', '')
+            db_host = db_config.get('HOST', 'localhost')
+            db_port = db_config.get('PORT', '5432')
+            
+            # Create temporary file for backup
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.sql') as tmp_file:
+                tmp_path = tmp_file.name
+            
+            try:
+                # Build pg_dump command
+                env = os.environ.copy()
+                if db_password:
+                    env['PGPASSWORD'] = db_password
+                
+                cmd = [
+                    'pg_dump',
+                    '-h', db_host,
+                    '-p', str(db_port),
+                    '-U', db_user,
+                    '-F', 'c',  # Custom format (compressed)
+                    '-f', tmp_path,
+                    db_name
+                ]
+                
+                # Execute pg_dump
+                result = subprocess.run(cmd, env=env, capture_output=True, text=True)
+                
+                if result.returncode != 0:
+                    raise Exception(f'pg_dump failed: {result.stderr}')
+                
+                # Read the backup file
+                with open(tmp_path, 'rb') as backup_file:
+                    backup_content = backup_file.read()
+                
+                # Create response
+                response = HttpResponse(backup_content, content_type='application/x-postgresql-backup')
+                response['Content-Disposition'] = f'attachment; filename="dlc_database_backup_{timestamp}.backup"'
+                
+                messages.success(request, 'PostgreSQL database backup downloaded successfully!')
+                return response
+                
+            finally:
+                # Clean up temporary file
+                if os.path.exists(tmp_path):
+                    os.unlink(tmp_path)
+        
+        else:
+            messages.error(request, f'Database backup is not supported for {db_engine}.')
+            return redirect('portal')
         
     except Exception as e:
         messages.error(request, f'Error backing up database: {str(e)}')
@@ -2998,49 +3052,133 @@ def restore_database(request):
                 messages.error(request, f'Uploaded file is not a valid SQLite database: {exc}')
                 return render(request, 'frontend/restore_database.html')
 
-            # Get the database path
-            db_path = settings.DATABASES['default']['NAME']
+            db_engine = settings.DATABASES['default']['ENGINE']
             
-            # Check if using SQLite
-            if 'sqlite' not in settings.DATABASES['default']['ENGINE']:
-                messages.error(request, 'Database restore is only available for SQLite databases.')
-                os.unlink(tmp_path)
-                return render(request, 'frontend/restore_database.html')
-            
-            # Create a backup of the current database before restoring
+            # Create a backup directory
             backup_dir = os.path.join(settings.BASE_DIR, 'database_backups')
             os.makedirs(backup_dir, exist_ok=True)
-            
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            backup_path = os.path.join(backup_dir, f'auto_backup_before_restore_{timestamp}.sqlite3')
             
-            # Copy current database as backup
-            if os.path.exists(db_path):
-                shutil.copy2(db_path, backup_path)
-            
-            # Ensure no open connections keep the DB locked before swapping files
-            connections.close_all()
-
-            try:
-                shutil.copy2(tmp_path, db_path)
-            finally:
-                os.unlink(tmp_path)
-
-            # Run migrations to bring the restored DB up to date with current models
-            try:
-                call_command('migrate', interactive=False, verbosity=0)
-            except Exception as migrate_error:
-                # Attempt to roll back to backup if migrations fail
-                if os.path.exists(backup_path):
-                    shutil.copy2(backup_path, db_path)
+            # SQLite restore
+            if 'sqlite' in db_engine:
+                db_path = settings.DATABASES['default']['NAME']
+                
+                # Validate file is SQLite
+                if not uploaded_file.name.endswith(('.sqlite3', '.db', '.sqlite')):
+                    messages.error(request, 'Invalid file type. Please upload a SQLite database file.')
+                    os.unlink(tmp_path)
+                    return render(request, 'frontend/restore_database.html')
+                
+                backup_path = os.path.join(backup_dir, f'auto_backup_before_restore_{timestamp}.sqlite3')
+                
+                # Copy current database as backup
+                if os.path.exists(db_path):
+                    shutil.copy2(db_path, backup_path)
+                
+                # Ensure no open connections
                 connections.close_all()
-                messages.error(request, f'Restore failed while aligning schema: {migrate_error}')
+
+                try:
+                    shutil.copy2(tmp_path, db_path)
+                finally:
+                    os.unlink(tmp_path)
+
+                # Run migrations
+                try:
+                    call_command('migrate', interactive=False, verbosity=0)
+                except Exception as migrate_error:
+                    if os.path.exists(backup_path):
+                        shutil.copy2(backup_path, db_path)
+                    connections.close_all()
+                    messages.error(request, f'Restore failed while aligning schema: {migrate_error}')
+                    return render(request, 'frontend/restore_database.html')
+                
+                messages.success(request, 'Database restored successfully!')
+                messages.info(request, f'Backup saved: {backup_path}')
+            
+            # PostgreSQL restore
+            elif 'postgresql' in db_engine or 'psycopg2' in db_engine:
+                import subprocess
+                
+                # Validate file type
+                if not (uploaded_file.name.endswith(('.backup', '.sql', '.dump'))):
+                    messages.error(request, 'Invalid file type. Please upload a PostgreSQL backup file (.backup, .sql, or .dump).')
+                    os.unlink(tmp_path)
+                    return render(request, 'frontend/restore_database.html')
+                
+                db_config = settings.DATABASES['default']
+                db_name = db_config['NAME']
+                db_user = db_config['USER']
+                db_password = db_config.get('PASSWORD', '')
+                db_host = db_config.get('HOST', 'localhost')
+                db_port = db_config.get('PORT', '5432')
+                
+                # Create a backup of current database first
+                backup_path = os.path.join(backup_dir, f'auto_backup_before_restore_{timestamp}.backup')
+                
+                try:
+                    env = os.environ.copy()
+                    if db_password:
+                        env['PGPASSWORD'] = db_password
+                    
+                    # Backup current database
+                    backup_cmd = [
+                        'pg_dump',
+                        '-h', db_host,
+                        '-p', str(db_port),
+                        '-U', db_user,
+                        '-F', 'c',
+                        '-f', backup_path,
+                        db_name
+                    ]
+                    subprocess.run(backup_cmd, env=env, check=True, capture_output=True)
+                    
+                    # Close all connections
+                    connections.close_all()
+                    
+                    # Drop and recreate database (alternative: use --clean --if-exists)
+                    # Restore using pg_restore
+                    restore_cmd = [
+                        'pg_restore',
+                        '-h', db_host,
+                        '-p', str(db_port),
+                        '-U', db_user,
+                        '-d', db_name,
+                        '--clean',
+                        '--if-exists',
+                        '--no-owner',
+                        '--no-acl',
+                        tmp_path
+                    ]
+                    
+                    result = subprocess.run(restore_cmd, env=env, capture_output=True, text=True)
+                    
+                    # pg_restore may return warnings but still succeed
+                    if result.returncode not in [0, 1]:
+                        raise Exception(f'pg_restore failed: {result.stderr}')
+                    
+                    os.unlink(tmp_path)
+                    
+                    # Run migrations
+                    try:
+                        call_command('migrate', interactive=False, verbosity=0)
+                    except Exception as migrate_error:
+                        messages.warning(request, f'Migration warning: {migrate_error}')
+                    
+                    messages.success(request, 'PostgreSQL database restored successfully!')
+                    messages.info(request, f'Backup saved: {backup_path}')
+                    
+                except subprocess.CalledProcessError as e:
+                    os.unlink(tmp_path)
+                    messages.error(request, f'PostgreSQL restore failed: {e.stderr if hasattr(e, "stderr") else str(e)}')
+                    return render(request, 'frontend/restore_database.html')
+            
+            else:
+                os.unlink(tmp_path)
+                messages.error(request, f'Database restore is not supported for {db_engine}.')
                 return render(request, 'frontend/restore_database.html')
             
-            messages.success(request, 'Database restored successfully! A backup of the previous database was saved.')
-            messages.info(request, f'Backup location: {backup_path}')
-            
-            # Redirect to login (user will need to log in again with restored credentials)
+            # Redirect to login
             return redirect('login')
             
         except Exception as e:
