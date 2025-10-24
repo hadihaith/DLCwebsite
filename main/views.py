@@ -3114,22 +3114,42 @@ def restore_database(request):
             
             # Import Users (skip if username exists)
             try:
+                from django.utils import timezone
+                from datetime import datetime
+                
                 sqlite_cursor.execute("SELECT * FROM main_user")
                 for row in sqlite_cursor.fetchall():
                     row = dict(row)  # Convert sqlite3.Row to dict
                     username = row.get('username', '')
                     if username and not User.objects.filter(username=username).exists():
+                        # Convert naive datetimes to timezone-aware
+                        last_login = row.get('last_login')
+                        if last_login and isinstance(last_login, str):
+                            try:
+                                last_login = timezone.make_aware(datetime.fromisoformat(last_login.replace('Z', '+00:00')))
+                            except:
+                                last_login = None
+                        
+                        date_joined = row.get('date_joined')
+                        if date_joined and isinstance(date_joined, str):
+                            try:
+                                date_joined = timezone.make_aware(datetime.fromisoformat(date_joined.replace('Z', '+00:00')))
+                            except:
+                                date_joined = timezone.now()
+                        elif not date_joined:
+                            date_joined = timezone.now()
+                        
                         User.objects.create(
                             username=username,
                             password=row.get('password', ''),
-                            last_login=row.get('last_login'),
+                            last_login=last_login,
                             is_superuser=bool(row.get('is_superuser', 0)),
                             first_name=row.get('first_name', ''),
                             last_name=row.get('last_name', ''),
                             email=row.get('email', ''),
                             is_staff=bool(row.get('is_staff', 0)),
                             is_active=bool(row.get('is_active', 1)),
-                            date_joined=row.get('date_joined'),
+                            date_joined=date_joined,
                             is_member=bool(row.get('is_member', 0)),
                             role=row.get('role', 'MEMBER'),
                             is_admin=bool(row.get('is_admin', 0)),
