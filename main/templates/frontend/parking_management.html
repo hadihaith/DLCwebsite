@@ -145,6 +145,9 @@
                         <td class="deans-list-cell" style="text-align: center;">
                             {% if "Dean's List" not in item.rejection_reasons|join:"" %}
                                 <span style="color: #28a745; font-size: 18px;">✓</span>
+                                {% if item.deans_list_gpa %}
+                                    <br><small style="color: #28a745; font-weight: 500;">GPA: {{ item.deans_list_gpa }}</small>
+                                {% endif %}
                             {% else %}
                                 <span style="color: #dc3545; font-size: 18px;">✗</span>
                             {% endif %}

@@ -20,7 +20,7 @@ import random
 from decimal import Decimal, InvalidOperation
 import os
 import re
-from .forms import EventForm, ExchangeApplicationForm, PartnerUniversityForm
+from .forms import EventForm, ExchangeApplicationForm, PartnerUniversityForm, BulkPartnerUniversityForm
 import requests
 from django.http import HttpResponse, HttpResponseBadRequest
 from urllib.parse import urlparse, quote
@@ -487,12 +487,17 @@ def parking_management(request):
         license_check = app.has_kuwaiti_license
         
         deans_list_check = False
+        deans_list_gpa = None  # Store the GPA from Dean's List
         if latest_dean_list:
-            deans_list_check = DeanListStudent.objects.filter(
+            deans_list_student = DeanListStudent.objects.filter(
                 student_id=app.student_id,
                 semester=latest_dean_list['semester'],
                 year=latest_dean_list['year']
-            ).exists()
+            ).first()
+            
+            if deans_list_student:
+                deans_list_check = True
+                deans_list_gpa = deans_list_student.gpa
         
         is_eligible = gpa_check and license_check and deans_list_check
         
@@ -518,7 +523,8 @@ def parking_management(request):
             'eligible': is_eligible,
             'rejection_reasons': rejection_reasons,
             'major_display': major_display,
-            'add_separator': add_separator
+            'add_separator': add_separator,
+            'deans_list_gpa': deans_list_gpa,  # Add Dean's List GPA
         })
     
     # Calculate statistics
@@ -739,12 +745,58 @@ def exchange_program(request):
 
 
 def exchange_application(request):
+    # Check if applications are enabled
+    from .models import ExchangeProgramSettings
+    settings_obj = ExchangeProgramSettings.get_settings()
+    
+    if not settings_obj.applications_enabled:
+        context = {
+            'applications_enabled': False,
+            'closed_message': settings_obj.applications_closed_message,
+        }
+        return render(request, 'frontend/exchange_application.html', context)
+    
     submitted = False
+    application_id = None
     if request.method == 'POST':
-        form = ExchangeApplicationForm(request.POST, request.FILES)
+        form = ExchangeApplicationForm(request.POST)
         if form.is_valid():
-            form.save()
+            application = form.save()
             submitted = True
+            application_id = application.id
+            
+            # Send email notification to exchange office
+            try:
+                from django.core.mail import send_mail
+                from django.conf import settings
+                
+                # Get exchange office email from settings or use default
+                exchange_email = getattr(settings, 'EXCHANGE_OFFICE_EMAIL', settings.DEFAULT_FROM_EMAIL)
+                
+                subject = f"Exchange Application Received - {application.first_name} {application.last_name}"
+                message = f"""
+New exchange application received!
+
+Applicant: {application.first_name} {application.last_name}
+Email: {application.email}
+Home Institution: {application.home_institution.name}
+Exchange Period: {application.exchange_semester} {application.exchange_academic_year}
+
+Application ID: {application.id}
+Submitted: {application.submitted_at}
+
+The applicant will be directed to upload required documents via Microsoft Forms.
+                """
+                
+                # Send to exchange officers
+                send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [exchange_email], fail_silently=True)
+                
+            except Exception as e:
+                # Log error but don't prevent form submission
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Failed to send exchange application email: {e}")
+            
             form = ExchangeApplicationForm()
     else:
         form = ExchangeApplicationForm()
@@ -752,7 +804,10 @@ def exchange_application(request):
     context = {
         'form': form,
         'submitted': submitted,
+        'application_id': application_id,
         'partner_count': PartnerUniversity.objects.count(),
+        'applications_enabled': True,
+        'document_form_url': settings_obj.document_form_embed_url,
     }
     return render(request, 'frontend/exchange_application.html', context)
 
@@ -774,22 +829,63 @@ def exchange_dashboard(request):
         })
 
     partner_form = PartnerUniversityForm()
+    bulk_partner_form = BulkPartnerUniversityForm()
+    
+    # Get exchange program settings
+    from .models import ExchangeProgramSettings
+    exchange_settings = ExchangeProgramSettings.get_settings()
+    
     if request.method == 'POST':
         form_type = request.POST.get('form_type')
 
         if form_type == 'add_partner':
-            partner_form = PartnerUniversityForm(request.POST, request.FILES)
+            partner_form = PartnerUniversityForm(request.POST)
             if partner_form.is_valid():
                 partner_form.save()
                 messages.success(request, 'Partner university added successfully.')
                 return redirect('exchange_dashboard')
             messages.error(request, 'Unable to add partner university. Please correct the errors below.')
 
+        elif form_type == 'bulk_add_partners':
+            bulk_partner_form = BulkPartnerUniversityForm(request.POST)
+            if bulk_partner_form.is_valid():
+                parsed_partners = bulk_partner_form.cleaned_data['bulk_data']
+                created_count = 0
+                
+                for partner_data in parsed_partners:
+                    PartnerUniversity.objects.create(
+                        name=partner_data['name'],
+                        logo_url=partner_data['logo_url']
+                    )
+                    created_count += 1
+                
+                messages.success(request, f'Successfully added {created_count} partner {"university" if created_count == 1 else "universities"}.')
+                return redirect('exchange_dashboard')
+            else:
+                messages.error(request, 'Unable to add partners. Please correct the errors below.')
+
+        elif form_type == 'toggle_applications':
+            exchange_settings.applications_enabled = not exchange_settings.applications_enabled
+            exchange_settings.updated_by = request.user
+            exchange_settings.save()
+            status = "enabled" if exchange_settings.applications_enabled else "disabled"
+            messages.success(request, f'Exchange applications have been {status}.')
+            return redirect('exchange_dashboard')
+
+        elif form_type == 'update_document_form_url':
+            document_form_url = request.POST.get('document_form_url', '').strip()
+            exchange_settings.document_form_embed_url = document_form_url if document_form_url else None
+            exchange_settings.updated_by = request.user
+            exchange_settings.save()
+            if document_form_url:
+                messages.success(request, 'Document upload form URL has been updated.')
+            else:
+                messages.success(request, 'Document upload form URL has been removed.')
+            return redirect('exchange_dashboard')
+
         elif form_type == 'delete_partner':
             partner_id = request.POST.get('partner_id')
             partner = get_object_or_404(PartnerUniversity, pk=partner_id)
-            if partner.logo:
-                partner.logo.delete(save=False)
             partner.delete()
             messages.success(request, 'Partner university deleted successfully.')
             return redirect('exchange_dashboard')
@@ -851,6 +947,8 @@ def exchange_dashboard(request):
         'semester_breakdown': semester_breakdown,
         'degree_breakdown': degree_breakdown,
         'partner_form': partner_form,
+        'bulk_partner_form': bulk_partner_form,
+        'exchange_settings': exchange_settings,
     }
 
     return render(request, 'frontend/exchange_dashboard.html', context)
@@ -1497,17 +1595,13 @@ def newdl(request):
             }
             return render(request, 'frontend/newdl.html', context)      
         try:
-            file_extension = os.path.splitext(excel_file.name)[1]  
-            new_filename = f"{semester}{year}dean list{file_extension}"        
-            file_content = excel_file.read()
-            renamed_file = ContentFile(file_content, name=new_filename)
+            # Create DeanList without storing the file
             dean_list = DeanList.objects.create(
                 semester=semester,
-                year=int(year),
-                excel_file=renamed_file
+                year=int(year)
             )
-            dean_list.save()
-            excel_file.seek(0)
+            
+            # Process the excel file directly without saving it
             df, header_row, students_saved = process_dean_list_excel(excel_file, semester, year)
             print(f"Processing completed: header at row {header_row}, {students_saved} students saved")
 
@@ -3389,100 +3483,15 @@ def restore_database(request):
                 messages.warning(request, f'Reply import issue: {str(e)}')
             
             # Import Dean Lists (uses semester + year, not name)
-            try:
-                sqlite_cursor.execute("SELECT * FROM main_deanlist")
-                for row in sqlite_cursor.fetchall():
-                    row = dict(row)  # Convert to dict
-                    semester = row.get('semester', '')
-                    year = row.get('year')
-                    
-                    if semester and year:
-                        # Check if dean list with same semester/year already exists
-                        dean_list, created = DeanList.objects.get_or_create(
-                            semester=semester,
-                            year=year,
-                            defaults={
-                                'excel_file': row.get('excel_file', ''),
-                                'created_at': row.get('created_at')
-                            }
-                        )
-                        if created:
-                            stats['dean_lists']['added'] += 1
-                        else:
-                            stats['dean_lists']['skipped'] += 1
-                    else:
-                        logger.warning(f"Skipping dean list with missing semester/year: {row}")
-                        stats['dean_lists']['skipped'] += 1
-            except Exception as e:
-                messages.warning(request, f'Dean list import issue: {str(e)}')
-                logger.error(f"Dean list import error: {e}")
+            # Skip DeanList import - not needed for database restore
+            # DeanList data is specific to each semester and managed separately
+            logger.info("Skipping DeanList import (managed separately)")
+            stats['dean_lists']['skipped'] = 0  # Not counting as we're not attempting
             
-            # Import Dean List Students
-            try:
-                sqlite_cursor.execute("SELECT * FROM main_deanliststudent")
-                dean_student_rows = sqlite_cursor.fetchall()
-                logger.info(f"Found {len(dean_student_rows)} dean list students to import")
-                
-                for row in dean_student_rows:
-                    row = dict(row)  # Convert to dict
-                    dean_list_id = row.get('dean_list_id')
-                    
-                    if dean_list_id:
-                        # Look up the dean list semester/year from source DB
-                        sqlite_cursor.execute("SELECT semester, year FROM main_deanlist WHERE id = ?", (dean_list_id,))
-                        dean_list_data = sqlite_cursor.fetchone()
-                        
-                        if dean_list_data:
-                            dean_list_data = dict(dean_list_data)
-                            semester_val = dean_list_data['semester']
-                            year_val = dean_list_data['year']
-                            
-                            logger.info(f"Looking for DeanList with semester={semester_val}, year={year_val}")
-                            
-                            # Find DeanList in target by semester + year
-                            dean_list = DeanList.objects.filter(
-                                semester=semester_val,
-                                year=year_val
-                            ).first()
-                            
-                            if dean_list:
-                                student_id = row.get('student_id', '')
-                                semester = row.get('semester', '')
-                                year = row.get('year')
-                                
-                                # Check if student already exists in this dean list
-                                if student_id and not DeanListStudent.objects.filter(
-                                    dean_list=dean_list, 
-                                    student_id=student_id
-                                ).exists():
-                                    DeanListStudent.objects.create(
-                                        dean_list=dean_list,
-                                        student_id=student_id,
-                                        student_name=row.get('student_name', ''),
-                                        student_major=row.get('student_major', ''),
-                                        semester=semester,
-                                        year=year,
-                                        gpa=row.get('gpa'),
-                                        passed_credits=row.get('passed_credits', 0),
-                                        registered_credits=row.get('registered_credits', 0)
-                                    )
-                                    stats['dean_students']['added'] += 1
-                                else:
-                                    stats['dean_students']['skipped'] += 1
-                            else:
-                                # Dean list doesn't exist in target
-                                logger.warning(f"DeanList not found for semester={semester_val}, year={year_val}")
-                                stats['dean_students']['skipped'] += 1
-                        else:
-                            # Can't find dean list in source DB
-                            logger.warning(f"Dean list ID {dean_list_id} not found in source database")
-                            stats['dean_students']['skipped'] += 1
-                    else:
-                        # No dean_list_id
-                        stats['dean_students']['skipped'] += 1
-            except Exception as e:
-                messages.warning(request, f'Dean list student import issue: {str(e)}')
-                logger.error(f"Dean list student import error: {e}", exc_info=True)
+            # Skip Dean List Students import - not needed for database restore
+            # Dean list students are managed through separate upload process
+            logger.info("Skipping DeanListStudent import (managed separately)")
+            stats['dean_students']['skipped'] = 0  # Not counting as we're not attempting
             
             # Import Courses
             try:
@@ -3598,3 +3607,130 @@ def restore_database(request):
         'import_mode': True
     }
     return render(request, 'frontend/restore_database.html', context)
+
+
+@login_required
+def merged_deans_list(request):
+    """Merge Fall and Spring Dean's List for a specific year"""
+    if not request.user.is_authenticated:
+        return HttpResponseRedirect(reverse("login"))
+    
+    # Check if user has permission (only president and staff can access)
+    if not (request.user.role == 'PRESIDENT' or request.user.is_staff):
+        return HttpResponseForbidden("Access denied. President or staff access required.")
+    
+    # Get available years
+    available_years = DeanListStudent.objects.values_list('year', flat=True).distinct().order_by('-year')
+    
+    selected_year = request.GET.get('year')
+    export = request.GET.get('export') == 'excel'
+    
+    merged_data = []
+    
+    if selected_year:
+        try:
+            selected_year = int(selected_year)
+            
+            # Get all students from Fall and Spring of the selected year
+            # Using case-insensitive matching for semester
+            fall_students = DeanListStudent.objects.filter(
+                year=selected_year, 
+                semester__iexact='fall'
+            ).values('student_id', 'student_name', 'student_major', 'gpa', 'passed_credits')
+            
+            spring_students = DeanListStudent.objects.filter(
+                year=selected_year, 
+                semester__iexact='spring'
+            ).values('student_id', 'student_name', 'student_major', 'gpa', 'passed_credits')
+            
+            # Create dictionaries for quick lookup
+            fall_dict = {s['student_id']: s for s in fall_students}
+            spring_dict = {s['student_id']: s for s in spring_students}
+            
+            # Get all unique student IDs
+            all_student_ids = set(fall_dict.keys()) | set(spring_dict.keys())
+            
+            # Merge the data
+            for student_id in sorted(all_student_ids):
+                fall_data = fall_dict.get(student_id)
+                spring_data = spring_dict.get(student_id)
+                
+                # Get student name and major from whichever semester has data
+                student_name = (fall_data or spring_data)['student_name']
+                student_major = (fall_data or spring_data)['student_major']
+                
+                merged_data.append({
+                    'student_id': student_id,
+                    'student_name': student_name,
+                    'major': student_major,
+                    'gpa_fall': fall_data['gpa'] if fall_data else 'N/A',
+                    'gpa_spring': spring_data['gpa'] if spring_data else 'N/A',
+                    'credits_passed_fall': fall_data['passed_credits'] if fall_data else 'N/A',
+                    'credits_passed_spring': spring_data['passed_credits'] if spring_data else 'N/A',
+                })
+        
+        except ValueError:
+            messages.error(request, 'Invalid year selected.')
+    
+    # Export to Excel if requested
+    if export and merged_data:
+        import openpyxl
+        from openpyxl.styles import Font, Alignment, PatternFill
+        from django.http import HttpResponse
+        
+        # Create workbook
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = f"Dean's List {selected_year}"
+        
+        # Add headers
+        headers = ['Student ID', 'Student Name', 'Major', 'GPA Fall', 'GPA Spring', 
+                   'Credits Passed Fall', 'Credits Passed Spring']
+        ws.append(headers)
+        
+        # Style headers
+        header_fill = PatternFill(start_color='4472C4', end_color='4472C4', fill_type='solid')
+        header_font = Font(bold=True, color='FFFFFF')
+        
+        for cell in ws[1]:
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = Alignment(horizontal='center', vertical='center')
+        
+        # Add data
+        for row in merged_data:
+            ws.append([
+                row['student_id'],
+                row['student_name'],
+                row['major'],
+                str(row['gpa_fall']),
+                str(row['gpa_spring']),
+                str(row['credits_passed_fall']),
+                str(row['credits_passed_spring']),
+            ])
+        
+        # Adjust column widths
+        ws.column_dimensions['A'].width = 15
+        ws.column_dimensions['B'].width = 30
+        ws.column_dimensions['C'].width = 15
+        ws.column_dimensions['D'].width = 12
+        ws.column_dimensions['E'].width = 12
+        ws.column_dimensions['F'].width = 20
+        ws.column_dimensions['G'].width = 20
+        
+        # Create response
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = f'attachment; filename=Deans_List_Merged_{selected_year}.xlsx'
+        wb.save(response)
+        return response
+    
+    context = {
+        'available_years': available_years,
+        'selected_year': selected_year,
+        'merged_data': merged_data,
+        'user': request.user,
+    }
+    
+    return render(request, 'frontend/merged_deans_list.html', context)

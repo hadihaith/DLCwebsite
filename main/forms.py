@@ -40,11 +40,92 @@ class EventForm(forms.ModelForm):
 class PartnerUniversityForm(forms.ModelForm):
     class Meta:
         model = PartnerUniversity
-        fields = ['name', 'logo']
+        fields = ['name', 'logo_url']
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'University Name'}),
-            'logo': forms.ClearableFileInput(attrs={'class': 'form-control', 'accept': 'image/*'}),
+            'logo_url': forms.URLInput(attrs={
+                'class': 'form-control', 
+                'placeholder': 'https://example.com/logo.png',
+                'help_text': 'Enter the URL of the university logo image'
+            }),
         }
+        labels = {
+            'name': 'University Name',
+            'logo_url': 'Logo URL',
+        }
+        help_texts = {
+            'logo_url': 'Paste the direct URL to the university logo image (e.g., from the university website or an image hosting service)',
+        }
+
+
+class BulkPartnerUniversityForm(forms.Form):
+    """Form for bulk adding partner universities via text input"""
+    bulk_data = forms.CharField(
+        widget=forms.Textarea(attrs={
+            'class': 'form-control',
+            'rows': 10,
+            'placeholder': 'Enter one partner per line in the format:\nUniversity Name, https://example.com/logo.png\n\nExample:\nHarvard University, https://example.com/harvard-logo.png\nOxford University, https://example.com/oxford-logo.png\nTokyo University, https://example.com/tokyo-logo.png'
+        }),
+        label='Partner Universities',
+        help_text='Enter one partner per line. Format: University Name, Logo URL'
+    )
+
+    def clean_bulk_data(self):
+        """Validate and parse bulk partner data"""
+        data = self.cleaned_data.get('bulk_data', '').strip()
+        if not data:
+            raise forms.ValidationError('Please enter at least one partner university.')
+        
+        lines = [line.strip() for line in data.split('\n') if line.strip()]
+        parsed_partners = []
+        errors = []
+        
+        for idx, line in enumerate(lines, 1):
+            # Split by comma
+            parts = [part.strip() for part in line.split(',', 1)]
+            
+            if len(parts) < 2:
+                errors.append(f'Line {idx}: Missing comma separator. Expected format: "Name, URL"')
+                continue
+            
+            name, logo_url = parts[0], parts[1]
+            
+            # Validate name
+            if not name:
+                errors.append(f'Line {idx}: University name is required.')
+                continue
+            
+            if len(name) > 255:
+                errors.append(f'Line {idx}: University name is too long (max 255 characters).')
+                continue
+            
+            # Validate URL (basic check)
+            if logo_url and not (logo_url.startswith('http://') or logo_url.startswith('https://')):
+                errors.append(f'Line {idx}: Logo URL must start with http:// or https://')
+                continue
+            
+            # Check for duplicates in the current batch
+            if any(p['name'].lower() == name.lower() for p in parsed_partners):
+                errors.append(f'Line {idx}: Duplicate university name "{name}" in your input.')
+                continue
+            
+            # Check if already exists in database
+            if PartnerUniversity.objects.filter(name__iexact=name).exists():
+                errors.append(f'Line {idx}: University "{name}" already exists in the database.')
+                continue
+            
+            parsed_partners.append({
+                'name': name,
+                'logo_url': logo_url if logo_url else ''
+            })
+        
+        if errors:
+            raise forms.ValidationError('\n'.join(errors))
+        
+        if not parsed_partners:
+            raise forms.ValidationError('No valid partner universities found to add.')
+        
+        return parsed_partners
 
 
 class ExchangeApplicationForm(forms.ModelForm):
@@ -64,9 +145,6 @@ class ExchangeApplicationForm(forms.ModelForm):
             'passport_expiry_date',
             'email',
             'completed_credits',
-            'english_proficiency_document',
-            'transcript_document',
-            'passport_copy',
             'accommodation_needed',
             'has_criminal_record',
             'coordinator_name',
@@ -86,9 +164,6 @@ class ExchangeApplicationForm(forms.ModelForm):
             'passport_expiry_date': 'Passport expiry date (must be valid for 1+ year at time of application)',
             'email': 'Email address',
             'completed_credits': 'Completed credits at home institution',
-            'english_proficiency_document': 'Proof of English proficiency (PDF upload)',
-            'transcript_document': 'Official transcript (PDF upload)',
-            'passport_copy': 'Passport copy (PDF/PNG/JPG upload)',
             'accommodation_needed': 'Accommodation required',
             'has_criminal_record': 'Applicant has an existing criminal record',
             'coordinator_name': 'Home institution coordinator name',
@@ -108,9 +183,6 @@ class ExchangeApplicationForm(forms.ModelForm):
             'passport_expiry_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
             'email': forms.EmailInput(attrs={'class': 'form-control'}),
             'completed_credits': forms.NumberInput(attrs={'class': 'form-control', 'min': 0}),
-            'english_proficiency_document': forms.ClearableFileInput(attrs={'class': 'form-control', 'accept': '.pdf'}),
-            'transcript_document': forms.ClearableFileInput(attrs={'class': 'form-control', 'accept': '.pdf'}),
-            'passport_copy': forms.ClearableFileInput(attrs={'class': 'form-control', 'accept': '.pdf,.png,.jpg,.jpeg'}),
             'accommodation_needed': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'has_criminal_record': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'coordinator_name': forms.TextInput(attrs={'class': 'form-control'}),

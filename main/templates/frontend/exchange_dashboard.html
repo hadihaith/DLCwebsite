@@ -4,7 +4,7 @@
 {% block title %}Exchange Program Dashboard{% endblock %}
 
 {% block content %}
-<div class="container" style="padding-top: 40px; padding-bottom: 60px;">
+<div class="container" style="padding-top: 140px; padding-bottom: 60px;">
     <div class="row mb-4 align-items-center">
         <div class="col">
             <h1 class="fw-bold" style="color:#4a2e5f;">Exchange Program Dashboard</h1>
@@ -23,8 +23,128 @@
             <button class="btn btn-success" type="button" data-bs-toggle="collapse" data-bs-target="#add-partner-form" aria-expanded="{% if partner_form.errors %}true{% else %}false{% endif %}" aria-controls="add-partner-form">
                 <i class="fas fa-university me-1"></i>Add Partner University
             </button>
+            <button class="btn btn-success" type="button" data-bs-toggle="collapse" data-bs-target="#bulk-add-partner-form" aria-expanded="{% if bulk_partner_form.errors %}true{% else %}false{% endif %}" aria-controls="bulk-add-partner-form">
+                <i class="fas fa-upload me-1"></i>Bulk Add Partners
+            </button>
         </div>
     </div>
+
+    <!-- Application Link Section -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body">
+            <div class="row align-items-center mb-3">
+                <div class="col-md-6">
+                    <h5 class="mb-2">
+                        <i class="fas fa-file-alt me-2"></i>Exchange Application Form
+                    </h5>
+                    <p class="text-muted mb-0">
+                        {% if exchange_settings.applications_enabled %}
+                            <span class="badge bg-success me-2">
+                                <i class="fas fa-check-circle"></i> Accepting Applications
+                            </span>
+                            Students can now submit exchange applications.
+                        {% else %}
+                            <span class="badge bg-danger me-2">
+                                <i class="fas fa-times-circle"></i> Applications Closed
+                            </span>
+                            Applications are currently disabled.
+                        {% endif %}
+                    </p>
+                </div>
+                <div class="col-md-6 text-md-end mt-3 mt-md-0">
+                    <div class="btn-group me-2" role="group">
+                        <a href="{% url 'exchange_application' %}" class="btn btn-outline-primary" target="_blank">
+                            <i class="fas fa-external-link-alt me-1"></i>Open Form
+                        </a>
+                        <button type="button" class="btn btn-outline-primary" onclick="copyApplicationLink()">
+                            <i class="fas fa-copy me-1"></i>Copy Link
+                        </button>
+                    </div>
+                    <form method="post" style="display: inline;">
+                        {% csrf_token %}
+                        <input type="hidden" name="form_type" value="toggle_applications">
+                        <button type="submit" class="btn {% if exchange_settings.applications_enabled %}btn-danger{% else %}btn-success{% endif %}">
+                            {% if exchange_settings.applications_enabled %}
+                                <i class="fas fa-toggle-on me-1"></i>Disable Applications
+                            {% else %}
+                                <i class="fas fa-toggle-off me-1"></i>Enable Applications
+                            {% endif %}
+                        </button>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Document Upload Form Configuration -->
+            <hr>
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <h6 class="mb-1">
+                        <i class="fas fa-file-upload me-2"></i>Document Upload Form
+                    </h6>
+                    <p class="text-muted small mb-0">
+                        {% if exchange_settings.document_form_embed_url %}
+                            <span class="badge bg-success me-1">✓</span> Microsoft Form configured
+                        {% else %}
+                            <span class="badge bg-warning me-1">⚠</span> No form configured - students will see fallback message
+                        {% endif %}
+                    </p>
+                </div>
+                <div class="col-md-6 text-md-end mt-2 mt-md-0">
+                    <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#configure-document-form">
+                        <i class="fas fa-cog me-1"></i>Configure Form URL
+                    </button>
+                </div>
+            </div>
+            
+            <div id="configure-document-form" class="collapse mt-3">
+                <div class="alert alert-info small">
+                    <strong><i class="fas fa-info-circle me-1"></i>How to get Microsoft Forms embed URL:</strong>
+                    <ol class="mb-0 mt-2">
+                        <li>Create a form at <a href="https://forms.office.com" target="_blank">forms.office.com</a></li>
+                        <li>Add file upload questions for: English proficiency, Transcript, Passport copy</li>
+                        <li>Add a text field for "Application ID"</li>
+                        <li>Click "Share" → "Embed" → Copy the URL from the iframe src</li>
+                        <li>Paste it below (should look like: https://forms.office.com/Pages/ResponsePage.aspx?id=...)</li>
+                    </ol>
+                </div>
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="form_type" value="update_document_form_url">
+                    <div class="input-group">
+                        <input type="url" name="document_form_url" class="form-control" 
+                               placeholder="https://forms.office.com/Pages/ResponsePage.aspx?id=..." 
+                               value="{{ exchange_settings.document_form_embed_url|default:'' }}">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-1"></i>Save URL
+                        </button>
+                    </div>
+                    <div class="form-text">Students will see this embedded form after submitting their application.</div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    function copyApplicationLink() {
+        const link = "{{ request.scheme }}://{{ request.get_host }}{% url 'exchange_application' %}";
+        navigator.clipboard.writeText(link).then(function() {
+            // Show success feedback
+            const btn = event.target.closest('button');
+            const originalHTML = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-check me-1"></i>Copied!';
+            btn.classList.remove('btn-outline-primary');
+            btn.classList.add('btn-success');
+            
+            setTimeout(function() {
+                btn.innerHTML = originalHTML;
+                btn.classList.remove('btn-success');
+                btn.classList.add('btn-outline-primary');
+            }, 2000);
+        }, function(err) {
+            alert('Failed to copy link: ' + err);
+        });
+    }
+    </script>
 
     {% if messages %}
     <div class="mb-3">
@@ -41,7 +161,7 @@
         <div class="card shadow-sm border-0">
             <div class="card-body">
                 <h2 class="h5 mb-3">Add Partner University</h2>
-                <form method="post" enctype="multipart/form-data">
+                <form method="post">
                     {% csrf_token %}
                     <input type="hidden" name="form_type" value="add_partner">
                     {% if partner_form.non_field_errors %}
@@ -60,17 +180,68 @@
                             {% endif %}
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label" for="id_logo">{{ partner_form.logo.label }}</label>
-                            {{ partner_form.logo }}
-                            <div class="form-text">Upload the partner's logo (PNG or JPG).</div>
-                            {% if partner_form.logo.errors %}
-                                <div class="text-danger small mt-1">{{ partner_form.logo.errors|join:', ' }}</div>
+                            <label class="form-label" for="id_logo_url">{{ partner_form.logo_url.label }}</label>
+                            {{ partner_form.logo_url }}
+                            <div class="form-text">Paste the direct URL to the university logo image (e.g., https://example.com/logo.png)</div>
+                            {% if partner_form.logo_url.errors %}
+                                <div class="text-danger small mt-1">{{ partner_form.logo_url.errors|join:', ' }}</div>
                             {% endif %}
                         </div>
                     </div>
                     <div class="mt-3">
                         <button type="submit" class="btn btn-success">
                             <i class="fas fa-plus-circle me-1"></i>Save Partner
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="bulk-add-partner-form" class="collapse mb-4{% if bulk_partner_form.errors %} show{% endif %}">
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <h2 class="h5 mb-3">
+                    <i class="fas fa-upload me-2"></i>Bulk Add Partner Universities
+                </h2>
+                <p class="text-muted mb-3">
+                    Add multiple partner universities at once. Enter one partner per line in the format:<br>
+                    <code>University Name, Logo URL</code>
+                </p>
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="form_type" value="bulk_add_partners">
+                    {% if bulk_partner_form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {% for error in bulk_partner_form.non_field_errors %}
+                                <div>{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                    <div class="mb-3">
+                        <label class="form-label" for="id_bulk_data">{{ bulk_partner_form.bulk_data.label }}</label>
+                        {{ bulk_partner_form.bulk_data }}
+                        <div class="form-text">{{ bulk_partner_form.bulk_data.help_text }}</div>
+                        {% if bulk_partner_form.bulk_data.errors %}
+                            <div class="alert alert-danger mt-2">
+                                {% for error in bulk_partner_form.bulk_data.errors %}
+                                    <div style="white-space: pre-line;">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="alert alert-info">
+                        <strong><i class="fas fa-info-circle me-1"></i>Format Example:</strong><br>
+                        <code>Harvard University, https://example.com/harvard.png</code><br>
+                        <code>Oxford University, https://example.com/oxford.png</code><br>
+                        <code>Tokyo University, https://example.com/tokyo.png</code>
+                    </div>
+                    <div class="mt-3">
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-upload me-1"></i>Upload Partners
+                        </button>
+                        <button type="button" class="btn btn-secondary" data-bs-toggle="collapse" data-bs-target="#bulk-add-partner-form">
+                            Cancel
                         </button>
                     </div>
                 </form>
@@ -248,9 +419,13 @@
                             {% for partner in recent_partners %}
                             <div class="col-6">
                                 <div class="border rounded text-center p-3 h-100">
-                                    {% if partner.logo %}
+                                    {% if partner.logo_url %}
                                     <div class="mb-2" style="height:48px; display:flex; align-items:center; justify-content:center;">
-                                        <img src="{{ partner.logo.url }}" alt="{{ partner.name }}" style="max-height:48px; max-width:100%; object-fit:contain;">
+                                        <img src="{{ partner.logo_url }}" alt="{{ partner.name }}" style="max-height:48px; max-width:100%; object-fit:contain;" onerror="this.style.display='none';">
+                                    </div>
+                                    {% else %}
+                                    <div class="mb-2 text-muted" style="height:48px; display:flex; align-items:center; justify-content:center;">
+                                        <i class="fas fa-university fa-2x"></i>
                                     </div>
                                     {% endif %}
                                     <div class="small fw-semibold">{{ partner.name }}</div>

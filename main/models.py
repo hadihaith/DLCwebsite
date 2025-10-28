@@ -92,18 +92,8 @@ class ExchangeApplication(models.Model):
     passport_expiry_date = models.DateField()
     email = models.EmailField()
     completed_credits = models.PositiveIntegerField()
-    english_proficiency_document = models.FileField(
-        upload_to='exchange_applications/english/',
-        validators=[FileExtensionValidator(['pdf'])]
-    )
-    transcript_document = models.FileField(
-        upload_to='exchange_applications/transcripts/',
-        validators=[FileExtensionValidator(['pdf'])]
-    )
-    passport_copy = models.FileField(
-        upload_to='exchange_applications/passports/',
-        validators=[FileExtensionValidator(['pdf', 'png', 'jpg', 'jpeg'])]
-    )
+    # Documents will be emailed separately - not stored in database
+    # Applicants will receive instructions to email documents after form submission
     accommodation_needed = models.BooleanField(default=False)
     has_criminal_record = models.BooleanField(default=False)
     coordinator_name = models.CharField(max_length=150)
@@ -170,7 +160,7 @@ class User(AbstractUser):
 
 class PartnerUniversity(models.Model):
     name = models.CharField(max_length=150, unique=True)
-    logo = models.ImageField(upload_to='partners/')
+    logo_url = models.URLField(max_length=500, blank=True, null=True, help_text="URL to university logo image")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -188,7 +178,8 @@ class DeanList(models.Model):
     
     semester = models.CharField(max_length=10, choices=SEMESTER_CHOICES)
     year = models.IntegerField()
-    excel_file = models.FileField(upload_to='dean_list_excel_files/')
+    # Excel file is uploaded but not stored in database - processed and deleted
+    # Only the extracted student data is stored in DeanListStudent model
     created_at = models.DateTimeField(auto_now_add=True)
     
     class Meta:
@@ -288,6 +279,17 @@ class ExchangeProgramSettings(models.Model):
         default="The Exchange Program is currently being prepared. Check back soon for exciting opportunities!",
         blank=True,
         help_text="Message to display when exchange program is hidden"
+    )
+    applications_enabled = models.BooleanField(default=False, help_text="Allow students to submit exchange applications")
+    applications_closed_message = models.TextField(
+        default="Applications are currently closed. Please check back later for upcoming application periods.",
+        blank=True,
+        help_text="Message to display when applications are disabled"
+    )
+    document_form_embed_url = models.URLField(
+        blank=True,
+        null=True,
+        help_text="Microsoft Forms embed URL for document uploads (e.g., https://forms.office.com/...)"
     )
     last_updated = models.DateTimeField(auto_now=True)
     updated_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)

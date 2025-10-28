@@ -10,7 +10,7 @@
             <div class="col-lg-7">
                 <span class="badge bg-light text-primary mb-3" style="font-size:0.85rem;">Incoming Student Application</span>
                 <h1 class="display-5 fw-bold mb-3">Start your Kuwait University exchange experience</h1>
-                <p class="lead mb-0">Complete the form below exactly as it appears on your official documents. Upload clear PDFs for academic records and ensure your passport remains valid for at least one year from the date of submission.</p>
+                <p class="lead mb-0">Complete the form below exactly as it appears on your official documents. After submission, you'll upload your required documents (English proficiency certificate, official transcript, and passport copy) directly through an online form.</p>
             </div>
             <div class="col-lg-5 text-lg-end mt-4 mt-lg-0">
                 <img src="{% static 'frontend/assets/img/exchange-application.png' %}" alt="Exchange application" class="img-fluid" onerror="this.style.display='none';">
@@ -21,10 +21,80 @@
 
 <section class="py-5 bg-light">
     <div class="container">
+        {% if not applications_enabled %}
+        <div class="alert alert-warning shadow-sm" role="alert">
+            <h2 class="h5 fw-bold"><i class="fas fa-exclamation-triangle me-2"></i>Applications Currently Closed</h2>
+            <p class="mb-0">{{ closed_message }}</p>
+        </div>
+        <div class="text-center mt-4">
+            <a href="{% url 'exchange_program' %}" class="btn btn-primary">
+                <i class="fas fa-arrow-left me-2"></i>Back to Exchange Program
+            </a>
+        </div>
+        {% else %}
         {% if submitted %}
-        <div class="alert alert-success shadow-sm" role="alert">
-            <h2 class="h5 fw-bold">Thank you for submitting your application!</h2>
-            <p class="mb-1">Our exchange team will review your documents and contact you via email with the next steps. Please keep copies of all uploaded files for your records.</p>
+        <div class="alert alert-success shadow-sm mb-4" role="alert">
+            <h2 class="h5 fw-bold"><i class="fas fa-check-circle me-2"></i>Application Submitted Successfully!</h2>
+            <p class="mb-2">Thank you for submitting your exchange application to Kuwait University!</p>
+            <p class="mb-0"><strong>Your Application ID: #{{ application_id }}</strong></p>
+        </div>
+
+        {% if document_form_url %}
+        <!-- Document Upload Section -->
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-primary text-white">
+                <h3 class="h5 mb-0"><i class="fas fa-file-upload me-2"></i>Step 2: Upload Required Documents</h3>
+            </div>
+            <div class="card-body p-4">
+                <div class="alert alert-info mb-4">
+                    <h5 class="fw-bold mb-3"><i class="fas fa-info-circle me-2"></i>Important Instructions</h5>
+                    <p class="mb-2">Please complete the form below to upload your required documents:</p>
+                    <ul class="mb-2">
+                        <li><strong>Proof of English Proficiency</strong> (TOEFL/IELTS certificate - PDF format)</li>
+                        <li><strong>Official Transcript</strong> from your home institution (PDF format)</li>
+                        <li><strong>Passport Copy</strong> (Photo page with personal details - PDF/PNG/JPG)</li>
+                    </ul>
+                    <p class="mb-0 text-danger"><strong>⚠️ Make sure to enter your Application ID: #{{ application_id }}</strong></p>
+                </div>
+
+                <!-- Embedded Microsoft Form -->
+                <div class="ratio" style="aspect-ratio: 16 / 9; min-height: 600px;">
+                    <iframe 
+                        src="{{ document_form_url }}" 
+                        frameborder="0" 
+                        marginwidth="0" 
+                        marginheight="0" 
+                        style="border: none; max-width: 100%; max-height: 100vh;" 
+                        allowfullscreen 
+                        webkitallowfullscreen 
+                        mozallowfullscreen 
+                        msallowfullscreen>
+                    </iframe>
+                </div>
+
+                <div class="alert alert-success mt-4">
+                    <p class="mb-0"><i class="fas fa-check-circle me-2"></i>After uploading your documents, our team will review your complete application and contact you via email.</p>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <!-- Fallback if no form URL is configured -->
+        <div class="alert alert-warning shadow-sm" role="alert">
+            <h5 class="fw-bold mb-2"><i class="fas fa-exclamation-triangle me-2"></i>Next Steps - Document Submission</h5>
+            <p class="mb-2">Please prepare the following documents:</p>
+            <ol class="mb-2">
+                <li>Proof of English proficiency (TOEFL/IELTS - PDF format)</li>
+                <li>Official transcript from your home institution (PDF format)</li>
+                <li>Copy of your passport (photo page - PDF/PNG/JPG format)</li>
+            </ol>
+            <p class="mb-0">Our exchange office will contact you shortly with instructions on how to submit these documents. Please save your <strong>Application ID: #{{ application_id }}</strong> for reference.</p>
+        </div>
+        {% endif %}
+
+        <div class="text-center mt-4">
+            <a href="{% url 'exchange_program' %}" class="btn btn-outline-primary">
+                <i class="fas fa-arrow-left me-2"></i>Back to Exchange Program
+            </a>
         </div>
         {% endif %}
 
@@ -36,7 +106,7 @@
 
         <div class="card shadow-sm border-0">
             <div class="card-body p-4 p-lg-5">
-                <form method="post" enctype="multipart/form-data" novalidate>
+                <form method="post" novalidate>
                     {% csrf_token %}
 
                     {% if form.non_field_errors %}
@@ -157,23 +227,25 @@
 
                     <div class="row g-4">
                         <div class="col-12">
-                            <h2 class="h5 text-primary mb-3">Required documents</h2>
-                            <p class="text-muted small mb-4">Upload clear, legible scans. PDF files are preferred unless otherwise noted.</p>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label" for="id_english_proficiency_document">{{ form.english_proficiency_document.label }}</label>
-                            {{ form.english_proficiency_document }}
-                            {% for error in form.english_proficiency_document.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label" for="id_transcript_document">{{ form.transcript_document.label }}</label>
-                            {{ form.transcript_document }}
-                            {% for error in form.transcript_document.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label" for="id_passport_copy">{{ form.passport_copy.label }}</label>
-                            {{ form.passport_copy }}
-                            {% for error in form.passport_copy.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                            <h2 class="h5 text-primary mb-3">Next Step: Document Upload</h2>
+                            <div class="alert alert-info border-0 shadow-sm">
+                                <div class="d-flex align-items-start">
+                                    <i class="fas fa-file-upload fa-2x text-primary me-3 mt-1"></i>
+                                    <div>
+                                        <h5 class="alert-heading mb-2">📄 Required Documents</h5>
+                                        <p class="mb-2">After submitting this application, you'll be directed to upload the following documents directly through an online form:</p>
+                                        <ul class="mb-2">
+                                            <li><strong>Proof of English proficiency</strong> (TOEFL/IELTS certificate - PDF format)</li>
+                                            <li><strong>Official transcript</strong> from your home institution (PDF format)</li>
+                                            <li><strong>Copy of your passport</strong> (photo page with personal details - PDF/PNG/JPG)</li>
+                                        </ul>
+                                        <p class="mb-0 text-muted small">
+                                            <i class="fas fa-info-circle me-1"></i><strong>Note:</strong> The upload form will appear immediately after you submit this application. 
+                                            Make sure to have your documents ready to upload.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -207,6 +279,7 @@
                 </form>
             </div>
         </div>
+        {% endif %}
     </div>
 </section>
 {% endblock %}

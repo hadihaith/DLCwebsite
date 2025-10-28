@@ -126,7 +126,7 @@
 
     @media (max-width: 767px) {
         .exchange-hero {
-            padding-top: 20px;
+            padding-top: 120px;
         }
         .partner-card {
             padding: 20px 16px;
@@ -294,8 +294,8 @@
         <div class="partner-grid">
             {% for partner in partner_universities %}
             <div class="partner-card">
-                {% if partner.logo %}
-                    <img src="{{ partner.logo.url }}" alt="{{ partner.name }} logo">
+                {% if partner.logo_url %}
+                    <img src="{{ partner.logo_url }}" alt="{{ partner.name }} logo" onerror="this.style.display='none';">
                 {% else %}
                     <div class="d-flex align-items-center justify-content-center" style="width: 120px; height: 60px; background: rgba(13, 77, 140, 0.08); border-radius: 12px; color: #0d4d8c; font-weight: 600;">
                         {{ partner.name|slice:":12" }}

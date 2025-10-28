@@ -56,6 +56,7 @@ urlpatterns = [
     path('portal/events/<int:pk>/export-sections/', views.export_event_sections, name='export_event_sections'),
     path('portal/database/backup/', views.backup_database, name='backup_database'),
     path('portal/database/restore/', views.restore_database, name='restore_database'),
+    path('portal/merged-deans-list/', views.merged_deans_list, name='merged_deans_list'),
     # Test route for 404 page
     path('test-404/', views.custom_404_view, name='test_404'),
 ]
