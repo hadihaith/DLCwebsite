@@ -1052,15 +1052,6 @@ def portal(request):
     if not request.user.is_authenticated:
         return HttpResponseRedirect(reverse("login"))
     
-    # Device detection - block mobile and tablet devices
-    user_agent = parse(request.META.get('HTTP_USER_AGENT', ''))
-    
-    if user_agent.is_mobile or user_agent.is_tablet:
-        # Render a "desktop only" message page
-        return render(request, 'frontend/desktop_only.html', {
-            'device_type': 'mobile device' if user_agent.is_mobile else 'tablet'
-        })
-    
     # user_count is now automatically available via context processor
     # include events for portal users
     try:
