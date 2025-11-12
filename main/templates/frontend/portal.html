@@ -5,6 +5,35 @@
 {% block content %}
 <link rel="stylesheet" href="{% static 'frontend/assets/css/portal.css' %}">
 
+<!-- Add explicit styles for mobile menu to ensure they work in production -->
+<style>
+/* Mobile Menu Toggle Button - Force visibility on mobile */
+.mobile-menu-toggle {
+  display: none;
+  position: fixed;
+  top: 120px;
+  left: 15px;
+  z-index: 1002;
+  background: #4b84fe;
+  color: white;
+  border: none;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(75, 132, 254, 0.4);
+  transition: all 0.3s ease;
+}
+
+@media screen and (max-width: 768px) {
+  .mobile-menu-toggle {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+  }
+}
+</style>
+
 <div class="portal-container">
 	<!-- Mobile Menu Toggle Button -->
 	<button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Toggle menu">
@@ -333,15 +362,28 @@
 	var menuWrap = document.querySelector('.menu-wrap');
 	var menuOverlay = document.getElementById('menuOverlay');
 
+	console.log('Mobile Menu Elements:', {
+		toggle: mobileMenuToggle,
+		menu: menuWrap,
+		overlay: menuOverlay
+	});
+
 	if (mobileMenuToggle && menuWrap && menuOverlay) {
+		console.log('Initializing mobile menu toggle...');
+		
 		// Toggle menu when button is clicked
-		mobileMenuToggle.addEventListener('click', function() {
+		mobileMenuToggle.addEventListener('click', function(e) {
+			e.preventDefault();
+			e.stopPropagation();
+			console.log('Toggle button clicked');
 			menuWrap.classList.toggle('active');
 			menuOverlay.classList.toggle('active');
+			console.log('Menu active:', menuWrap.classList.contains('active'));
 		});
 
 		// Close menu when overlay is clicked
 		menuOverlay.addEventListener('click', function() {
+			console.log('Overlay clicked');
 			menuWrap.classList.remove('active');
 			menuOverlay.classList.remove('active');
 		});
@@ -361,6 +403,12 @@
 				menuWrap.classList.remove('active');
 				menuOverlay.classList.remove('active');
 			}
+		});
+	} else {
+		console.error('Mobile menu elements not found!', {
+			toggle: !!mobileMenuToggle,
+			menu: !!menuWrap,
+			overlay: !!menuOverlay
 		});
 	}
 						</script>

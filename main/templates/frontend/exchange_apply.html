@@ -235,6 +235,33 @@
             padding: 20px 16px;
         }
     }
+    
+    /* Mobile navbar collapse positioning */
+    @media (max-width: 767.98px) {
+        #mainNav {
+            height: auto !important; /* Allow navbar to expand */
+            min-height: 103px !important;
+        }
+        
+        #navcol-1 {
+            position: static !important; /* Changed from absolute */
+            width: 100% !important;
+            overflow-y: visible !important;
+            max-height: none !important;
+        }
+        
+        #navcol-1.show,
+        #navcol-1.collapsing {
+            background: #1B4069 !important;
+        }
+    }
+    
+    /* Desktop navbar */
+    @media (min-width: 768px) {
+        #navcol-1 {
+            background-color: transparent !important;
+        }
+    }
 </style>
 
 </head>
@@ -252,7 +279,7 @@
                 <span class="visually-hidden">Toggle navigation</span>
                 <span class="navbar-toggler-icon"></span>
             </button>
-            <div class="collapse navbar-collapse" id="navcol-1" style="width: 100%; background: #1B4069; text-align: center; z-index: 1000;">
+            <div class="collapse navbar-collapse" id="navcol-1" style="background: #1B4069; text-align: center;">
             <ul class="navbar-nav mx-auto">
                 <li class="nav-item"><a class="nav-link" href="{% url 'home' %}" style="color: rgba(255,255,255,0.8);"><i class="fas fa-home" style="margin-right: 8px;"></i>Home</a></li>
                 <li class="nav-item"><a class="nav-link" href="{% url 'members' %}" style="color: rgba(255,255,255,0.8);"><i class="fas fa-users" style="margin-right: 8px;"></i>Members</a></li>
