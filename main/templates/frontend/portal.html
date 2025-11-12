@@ -4,6 +4,18 @@
 {% load static %}
 {% block content %}
 <link rel="stylesheet" href="{% static 'frontend/assets/css/portal.css' %}">
+
+<div class="portal-container">
+	<!-- Mobile Menu Toggle Button -->
+	<button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Toggle menu">
+		<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+			<path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/>
+		</svg>
+	</button>
+
+	<!-- Menu Overlay for mobile -->
+	<div class="menu-overlay" id="menuOverlay"></div>
+
 <div class="dashboard">
 	<aside class="search-wrap">
 		<div class="search">
@@ -315,7 +327,44 @@
 	var style = document.createElement('style');
 	style.textContent = '\n.confirm-backdrop { position:fixed; left:0; top:0; right:0; bottom:0; background:rgba(0,0,0,0.45); z-index:1000; }\n.confirm-modal { position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); background:white; padding:18px; border-radius:8px; box-shadow:0 8px 32px rgba(0,0,0,0.35); z-index:1001; width:90%; max-width:480px; }\n.confirm-modal .inline-confirm-title { font-size:1.05em; margin-bottom:12px; }\n.confirm-modal .inline-confirm-actions { text-align:right; }\n';
 	document.head.appendChild(style);
+
+	// Mobile menu toggle functionality
+	var mobileMenuToggle = document.getElementById('mobileMenuToggle');
+	var menuWrap = document.querySelector('.menu-wrap');
+	var menuOverlay = document.getElementById('menuOverlay');
+
+	if (mobileMenuToggle && menuWrap && menuOverlay) {
+		// Toggle menu when button is clicked
+		mobileMenuToggle.addEventListener('click', function() {
+			menuWrap.classList.toggle('active');
+			menuOverlay.classList.toggle('active');
+		});
+
+		// Close menu when overlay is clicked
+		menuOverlay.addEventListener('click', function() {
+			menuWrap.classList.remove('active');
+			menuOverlay.classList.remove('active');
+		});
+
+		// Close menu when a menu link is clicked (for better UX)
+		var menuLinks = menuWrap.querySelectorAll('nav a');
+		menuLinks.forEach(function(link) {
+			link.addEventListener('click', function() {
+				menuWrap.classList.remove('active');
+				menuOverlay.classList.remove('active');
+			});
+		});
+
+		// Close menu on window resize if screen becomes larger
+		window.addEventListener('resize', function() {
+			if (window.innerWidth > 768) {
+				menuWrap.classList.remove('active');
+				menuOverlay.classList.remove('active');
+			}
+		});
+	}
 						</script>
 	</main>
+</div>
 </div>
 {% endblock %}

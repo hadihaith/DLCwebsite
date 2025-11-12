@@ -4,7 +4,7 @@
 
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no">
     <link rel="icon" type="image/png" href="{% static 'img/white_dlc.ico' %}">
     <title>Home - DLC</title>
     <script type="application/ld+json">
@@ -31,6 +31,102 @@
         /* Portal pages already handle their own spacing */
         .dashboard {
             padding-top: 0;
+        }
+        
+        /* Prevent horizontal overflow and whitespace on mobile */
+        html, body {
+            overflow-x: hidden;
+            width: 100%;
+            max-width: 100vw;
+            position: relative;
+        }
+        
+        * {
+            max-width: 100%;
+        }
+        
+        /* Exclude animation elements from max-width constraint */
+        .wave,
+        .e-card .wave,
+        .e-card *,
+        [class*="animate"],
+        [class*="animation"] {
+            max-width: none !important;
+        }
+        
+        /* Ensure all containers stay within viewport */
+        .container, .container-fluid, .row {
+            overflow-x: hidden;
+            max-width: 100%;
+        }
+        
+        /* Limit main content width on large screens */
+        @media (min-width: 1200px) {
+            .container:not(#mainNav .container) {
+                max-width: 60vw !important;
+            }
+            
+            /* Keep specific full-width sections as they are */
+            .bg-container .container,
+            .dashboard .container,
+            header .container,
+            footer .container {
+                max-width: 100% !important;
+            }
+        }
+        
+        /* Fix navbar overflow */
+        #mainNav {
+            max-width: 100vw;
+            overflow-x: hidden;
+            overflow-y: visible;
+        }
+        
+        #mainNav .container {
+            padding-left: 15px;
+            padding-right: 15px;
+            overflow: visible;
+        }
+        
+        /* Prevent navbar collapse from overflowing */
+        #navcol-1 {
+            max-width: 100vw;
+        }
+        
+        /* Fix DLC logo animation overflow */
+        .dlc-logo-animated {
+            margin-top: 5px;
+            margin-bottom: 5px;
+        }
+        
+        /* Ensure logo container doesn't clip animation */
+        .navbar-brand {
+            overflow: visible !important;
+        }
+        
+        /* Fix images and media */
+        img, video, iframe {
+            max-width: 100%;
+            height: auto;
+        }
+        
+        /* Mobile specific fixes */
+        @media (max-width: 768px) {
+            body {
+                overflow-x: hidden;
+                position: relative;
+                width: 100vw;
+            }
+            
+            .navbar-collapse {
+                overflow-x: hidden;
+            }
+            
+            /* Ensure all text doesn't cause overflow */
+            h1, h2, h3, h4, h5, h6, p, div {
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+            }
         }
     </style>
 

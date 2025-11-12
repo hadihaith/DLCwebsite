@@ -1072,7 +1072,129 @@ def portal(request):
     return render(request, 'frontend/portal.html', {'user': request.user, 'events': events})
 
 
-@login_required
+def _refresh_courses_background(username):
+    """Background task to refresh course data - runs in separate thread"""
+    print(f"")
+    print(f"★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★")
+    print(f"★ BACKGROUND FUNCTION CALLED!")
+    print(f"★ Username: {username}")
+    print(f"★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★")
+    print(f"")
+    
+    import time
+    
+    # Small delay to ensure thread is fully initialized
+    time.sleep(0.5)
+    
+    from django.core.cache import cache
+    from django.db import connection, connections
+    
+    # Close all existing database connections from parent thread
+    for conn in connections.all():
+        conn.close()
+    
+    try:
+        from django.core.management import call_command
+        from .models import Course
+        
+        # Initialize progress tracking
+        cache.set('course_refresh_status', 'starting', timeout=3600)
+        cache.set('course_refresh_progress', 0, timeout=3600)
+        cache.set('course_refresh_message', 'Initializing course refresh...', timeout=3600)
+        
+        print(f"[Background Task] Course refresh started by {username}")
+        
+        # Force new database connection
+        connection.ensure_connection()
+        print(f"[Background Task] Database connection established")
+        
+        # Step 1: Delete old courses (20% progress)
+        cache.set('course_refresh_status', 'deleting', timeout=3600)
+        cache.set('course_refresh_progress', 10, timeout=3600)
+        cache.set('course_refresh_message', 'Deleting old courses...', timeout=3600)
+        
+        print(f"[Background Task] Counting courses to delete...")
+        deleted_count = Course.objects.count()
+        print(f"[Background Task] Found {deleted_count} courses to delete")
+        
+        print(f"[Background Task] Deleting all courses...")
+        Course.objects.all().delete()
+        print(f"[Background Task] Successfully deleted {deleted_count} old courses")
+        
+        cache.set('course_refresh_progress', 20, timeout=3600)
+        cache.set('course_refresh_message', f'Deleted {deleted_count} old courses', timeout=3600)
+        
+        # Step 2: Fetch new courses (20% -> 70% progress)
+        cache.set('course_refresh_status', 'fetching', timeout=3600)
+        cache.set('course_refresh_progress', 30, timeout=3600)
+        cache.set('course_refresh_message', 'Fetching new courses from CMU...', timeout=3600)
+        
+        print(f"[Background Task] Starting fetch_courses command...")
+        
+        # Call the command directly without output redirection to avoid hanging in thread
+        try:
+            call_command('fetch_courses', verbosity=0)  # verbosity=0 to reduce output
+            print(f"[Background Task] fetch_courses command completed successfully")
+        except Exception as fetch_error:
+            print(f"[Background Task] Error during fetch_courses: {str(fetch_error)}")
+            cache.set('course_refresh_status', 'error', timeout=3600)
+            cache.set('course_refresh_message', f'Error fetching courses: {str(fetch_error)}', timeout=3600)
+            return
+        
+        new_count = Course.objects.count()
+        print(f"[Background Task] Successfully fetched {new_count} new courses")
+        
+        cache.set('course_refresh_progress', 70, timeout=3600)
+        cache.set('course_refresh_message', f'Fetched {new_count} new courses', timeout=3600)
+        
+        # Step 3: Cleanup invalid courses (70% -> 90% progress)
+        cache.set('course_refresh_status', 'cleaning', timeout=3600)
+        cache.set('course_refresh_progress', 80, timeout=3600)
+        cache.set('course_refresh_message', 'Cleaning up invalid course IDs...', timeout=3600)
+        
+        cleanup_count = cleanup_invalid_course_ids()
+        final_count = Course.objects.count()
+        
+        if cleanup_count > 0:
+            print(f"[Background Task] Cleaned up {cleanup_count} invalid course IDs")
+            print(f"[Background Task] Final count: {final_count} valid courses")
+        
+        cache.set('course_refresh_progress', 90, timeout=3600)
+        cache.set('course_refresh_message', f'Cleaned up {cleanup_count} invalid courses', timeout=3600)
+        
+        # Step 4: Complete (100% progress)
+        cache.set('course_refresh_status', 'completed', timeout=3600)
+        cache.set('course_refresh_progress', 100, timeout=3600)
+        cache.set('course_refresh_message', f'Refresh completed! Deleted: {deleted_count}, Fetched: {new_count}, Cleaned: {cleanup_count}, Final: {final_count}', timeout=3600)
+        cache.set('course_refresh_stats', {
+            'deleted': deleted_count,
+            'fetched': new_count,
+            'cleaned': cleanup_count,
+            'final': final_count
+        }, timeout=3600)
+        
+        print(f"[Background Task] Course refresh completed successfully!")
+        print(f"[Background Task] Summary - Deleted: {deleted_count}, Fetched: {new_count}, Cleaned: {cleanup_count}, Final: {final_count}")
+        
+    except Exception as e:
+        error_msg = f'Error: {str(e)}'
+        cache.set('course_refresh_status', 'error', timeout=3600)
+        cache.set('course_refresh_progress', 0, timeout=3600)
+        cache.set('course_refresh_message', error_msg, timeout=3600)
+        print(f"[Background Task] ========== ERROR ==========")
+        print(f"[Background Task] Error refreshing courses: {str(e)}")
+        print(f"[Background Task] Full traceback:")
+        import traceback
+        traceback.print_exc()
+        print(f"[Background Task] ============================")
+    finally:
+        # Close database connections when done
+        from django.db import connections
+        for conn in connections.all():
+            conn.close()
+        print(f"[Background Task] Database connections closed")
+
+
 def refresh_courses(request):
     """Admin view to refresh course data from CMU website"""
     if not request.user.is_authenticated:
@@ -1083,47 +1205,45 @@ def refresh_courses(request):
         return HttpResponseForbidden("Access denied. President or staff access required.")
     
     if request.method == 'POST':
-        try:
-            from django.core.management import call_command
-            from .models import Course
-            import io
-            from contextlib import redirect_stdout
-            
-            # Capture the output of the management command
-            output = io.StringIO()
-            
-            # Delete all existing courses
-            deleted_count = Course.objects.count()
-            Course.objects.all().delete()
-            
-            # Run the fetch_courses command
-            with redirect_stdout(output):
-                call_command('fetch_courses')
-            
-            command_output = output.getvalue()
-            
-            # Get the new course count
-            new_count = Course.objects.count()
-            
-            # Run additional cleanup to ensure no invalid course IDs remain
-            cleanup_count = cleanup_invalid_course_ids()
-            final_count = Course.objects.count()
-            
-            success_message = f"Course refresh completed successfully!\nDeleted: {deleted_count} old courses\nFetched: {new_count} new courses"
-            
-            if cleanup_count > 0:
-                success_message += f"\nCleaned up: {cleanup_count} invalid course IDs\nFinal count: {final_count} valid courses"
-            
-            messages.success(request, success_message)
-            
-            # Log the refresh action
-            print(f"Course refresh by {request.user.username}: {deleted_count} deleted, {new_count} fetched, {cleanup_count} cleaned up")
-            
-        except Exception as e:
-            messages.error(
-                request,
-                f"Error refreshing courses: {str(e)}"
-            )
+        import threading
+        from django.core.cache import cache
+        
+        print(f"========== REFRESH COURSES INITIATED ==========")
+        print(f"User: {request.user.username}")
+        print(f"Method: POST")
+        
+        # Initialize cache status
+        cache.set('course_refresh_status', 'starting', timeout=3600)
+        cache.set('course_refresh_progress', 0, timeout=3600)
+        cache.set('course_refresh_message', 'Initializing...', timeout=3600)
+        print(f"Cache initialized with 'starting' status")
+        
+        # Create the background thread
+        print(f"Creating background thread...")
+        thread = threading.Thread(
+            target=_refresh_courses_background,
+            args=(request.user.username,),
+            daemon=True,
+            name='CourseRefreshThread'
+        )
+        
+        # Start the refresh task in a background thread
+        print(f"Starting thread...")
+        thread.start()
+        print(f"Thread started: {thread.name}, is_alive: {thread.is_alive()}")
+        
+        # Verify thread is running
+        if thread.is_alive():
+            print(f"✓ Background thread is running successfully")
+        else:
+            print(f"✗ WARNING: Thread may not have started properly")
+        
+        print(f"Course refresh initiated by {request.user.username} (running in background)")
+        print(f"Redirecting to progress page...")
+        print(f"===============================================")
+        
+        # Redirect to progress page
+        return HttpResponseRedirect(reverse('refresh_courses_progress'))
     
     # Get current course statistics
     try:
@@ -1150,6 +1270,43 @@ def refresh_courses(request):
     }
     
     return render(request, 'frontend/refresh_courses.html', context)
+
+
+def refresh_courses_progress(request):
+    """Display progress page for course refresh"""
+    if not request.user.is_authenticated:
+        return HttpResponseRedirect(reverse("login"))
+    
+    if not (request.user.role == 'PRESIDENT' or request.user.is_staff):
+        return HttpResponseForbidden("Access denied. President or staff access required.")
+    
+    return render(request, 'frontend/refresh_courses_progress.html', {
+        'user': request.user,
+    })
+
+
+def refresh_courses_status(request):
+    """API endpoint to get current refresh status"""
+    from django.http import JsonResponse
+    from django.core.cache import cache
+    
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Not authenticated'}, status=401)
+    
+    if not (request.user.role == 'PRESIDENT' or request.user.is_staff):
+        return JsonResponse({'error': 'Access denied'}, status=403)
+    
+    status = cache.get('course_refresh_status', 'idle')
+    progress = cache.get('course_refresh_progress', 0)
+    message = cache.get('course_refresh_message', 'No refresh in progress')
+    stats = cache.get('course_refresh_stats', {})
+    
+    return JsonResponse({
+        'status': status,
+        'progress': progress,
+        'message': message,
+        'stats': stats
+    })
 
 
 def login_view(request):
