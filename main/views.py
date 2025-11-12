@@ -13,7 +13,6 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.core.files.base import ContentFile
 from datetime import datetime, timedelta
 from .utils import process_dean_list_excel
-from user_agents import parse
 from django.contrib import messages
 from django.db.models import Q, Count
 import random
@@ -431,14 +430,6 @@ def parking_management(request):
     from .models import ParkingApplication, DeanListStudent
     from decimal import Decimal
     
-    # Device detection - block mobile and tablet devices
-    user_agent = parse(request.META.get('HTTP_USER_AGENT', ''))
-    
-    if user_agent.is_mobile or user_agent.is_tablet:
-        return render(request, 'frontend/desktop_only.html', {
-            'device_type': 'mobile device' if user_agent.is_mobile else 'tablet'
-        })
-    
     # Get latest Dean's List info for verification
     latest_dean_list = DeanListStudent.objects.order_by('-year', '-semester').values('semester', 'year').first()
     
@@ -821,12 +812,6 @@ def exchange_dashboard(request):
     if not user_is_exchange_officer(request.user):
         messages.error(request, 'You do not have permission to access the exchange dashboard.')
         return redirect('portal')
-
-    user_agent = parse(request.META.get('HTTP_USER_AGENT', ''))
-    if user_agent.is_mobile or user_agent.is_tablet:
-        return render(request, 'frontend/desktop_only.html', {
-            'device_type': 'mobile device' if user_agent.is_mobile else 'tablet'
-        })
 
     partner_form = PartnerUniversityForm()
     bulk_partner_form = BulkPartnerUniversityForm()
@@ -1331,14 +1316,6 @@ def add_member(request):
     Add new member functionality - accessible to all users but only functional for authorized roles
     Supports both single member and bulk member creation
     """
-    # Device detection - block mobile and tablet devices
-    user_agent = parse(request.META.get('HTTP_USER_AGENT', ''))
-    
-    if user_agent.is_mobile or user_agent.is_tablet:
-        return render(request, 'frontend/desktop_only.html', {
-            'device_type': 'mobile device' if user_agent.is_mobile else 'tablet'
-        })
-    
     # Check if user has permission to add members
     allowed_roles = ['PRESIDENT', 'VICE_PRESIDENT', 'MANAGER']
     can_add_member = request.user.is_superuser or request.user.is_staff or request.user.role in allowed_roles
@@ -1544,14 +1521,6 @@ def manage_members(request):
     Manage members functionality - accessible only to president and staff
     Allows deleting members and changing their roles
     """
-    # Device detection - block mobile and tablet devices
-    user_agent = parse(request.META.get('HTTP_USER_AGENT', ''))
-    
-    if user_agent.is_mobile or user_agent.is_tablet:
-        return render(request, 'frontend/desktop_only.html', {
-            'device_type': 'mobile device' if user_agent.is_mobile else 'tablet'
-        })
-    
     # Check if user has permission to manage members
     allowed_roles = ['PRESIDENT']
     can_manage = request.user.is_superuser or request.user.is_staff or request.user.role in allowed_roles
@@ -1717,15 +1686,6 @@ def register(request):
 
 @login_required
 def newdl(request):
-    # Device detection - block mobile and tablet devices
-    user_agent = parse(request.META.get('HTTP_USER_AGENT', ''))
-    
-    if user_agent.is_mobile or user_agent.is_tablet:
-        # Render a "desktop only" message page
-        return render(request, 'frontend/desktop_only.html', {
-            'device_type': 'mobile device' if user_agent.is_mobile else 'tablet'
-        })
-    
     if request.method == 'POST':
         semester = request.POST.get('semester')
         year = request.POST.get('year')
@@ -1854,14 +1814,6 @@ def student_search(request):
     """
     Search for students by ID or name and display their dean's list rankings
     """
-    # Device detection - block mobile and tablet devices
-    user_agent = parse(request.META.get('HTTP_USER_AGENT', ''))
-    
-    if user_agent.is_mobile or user_agent.is_tablet:
-        return render(request, 'frontend/desktop_only.html', {
-            'device_type': 'mobile device' if user_agent.is_mobile else 'tablet'
-        })
-    
     search_results = []
     search_query = ""
     search_type = ""
@@ -2011,14 +1963,6 @@ def application_management(request):
     """
     Manage membership applications - view all applications with automatic rejection flags
     """
-    # Device detection - block mobile and tablet devices
-    user_agent = parse(request.META.get('HTTP_USER_AGENT', ''))
-    
-    if user_agent.is_mobile or user_agent.is_tablet:
-        return render(request, 'frontend/desktop_only.html', {
-            'device_type': 'mobile device' if user_agent.is_mobile else 'tablet'
-        })
-    
     # Get all applications ordered by eligibility first, then by GPA and passed credits
     all_applications = Application.objects.all()
     
@@ -2141,14 +2085,6 @@ def thread_settings(request):
     """
     Manage thread settings - accessible to any logged-in user
     """
-    # Device detection - block mobile and tablet devices
-    user_agent = parse(request.META.get('HTTP_USER_AGENT', ''))
-    
-    if user_agent.is_mobile or user_agent.is_tablet:
-        return render(request, 'frontend/desktop_only.html', {
-            'device_type': 'mobile device' if user_agent.is_mobile else 'tablet'
-        })
-    
     # Any logged-in user can manage thread settings
     settings = ThreadSettings.get_settings()
     message = None
@@ -2200,14 +2136,6 @@ def exchange_program_settings(request):
     Manage exchange program visibility settings - accessible to logged-in users
     """
     from .models import ExchangeProgramSettings
-    
-    # Device detection - block mobile and tablet devices
-    user_agent = parse(request.META.get('HTTP_USER_AGENT', ''))
-    
-    if user_agent.is_mobile or user_agent.is_tablet:
-        return render(request, 'frontend/desktop_only.html', {
-            'device_type': 'mobile device' if user_agent.is_mobile else 'tablet'
-        })
     
     settings = ExchangeProgramSettings.get_settings()
     message = None
@@ -2884,13 +2812,6 @@ def events_dashboard(request):
         messages.error(request, 'You do not have permission to access the events dashboard.')
         return redirect('portal')
     
-    # Device detection - block mobile and tablet devices
-    user_agent = parse(request.META.get('HTTP_USER_AGENT', ''))
-    if user_agent.is_mobile or user_agent.is_tablet:
-        return render(request, 'frontend/desktop_only.html', {
-            'device_type': 'mobile device' if user_agent.is_mobile else 'tablet'
-        })
-    
     try:
         from .models import Event, Attendance
         from datetime import datetime
@@ -3259,18 +3180,6 @@ def restore_database(request):
     if not (request.user.is_superuser or request.user.is_staff):
         messages.error(request, 'You do not have permission to import database.')
         return redirect('portal')
-    
-    # Device detection - block mobile and tablet devices
-    try:
-        user_agent = parse(request.META.get('HTTP_USER_AGENT', ''))
-        if user_agent.is_mobile or user_agent.is_tablet:
-            return render(request, 'frontend/desktop_only.html', {
-                'device_type': 'mobile device' if user_agent.is_mobile else 'tablet'
-            })
-    except Exception as e:
-        # If device detection fails, continue anyway
-        logger.warning(f"Device detection error: {e}")
-        pass
     
     if request.method == 'POST':
         tmp_path = None
