@@ -376,6 +376,47 @@ def apply(request):
     return render(request, 'frontend/apply.html')
 
 
+def reading_group_application(request):
+    """Reading Group Application - Arabic form with RTL support"""
+    from .models import ReadingGroupApplication
+    
+    submitted = False
+    error_message = None
+    
+    if request.method == 'POST':
+        name = request.POST.get('name', '').strip()
+        student_id = request.POST.get('student_id', '').strip()
+        phone = request.POST.get('phone', '').strip()
+        book_types = request.POST.get('book_types', '').strip()
+        books_per_year = request.POST.get('books_per_year', '').strip()
+        commitment_level = request.POST.get('commitment_level', '').strip()
+        
+        # Validation
+        if not all([name, student_id, phone, book_types, books_per_year, commitment_level]):
+            error_message = 'جميع الحقول مطلوبة'
+        elif ReadingGroupApplication.objects.filter(student_id=student_id).exists():
+            error_message = 'لقد قمت بالتسجيل مسبقاً في مجموعة القراءة'
+        else:
+            try:
+                application = ReadingGroupApplication.objects.create(
+                    name=name,
+                    student_id=student_id,
+                    phone=phone,
+                    book_types=book_types,
+                    books_per_year=books_per_year,
+                    commitment_level=commitment_level
+                )
+                submitted = True
+            except Exception as e:
+                error_message = f'حدث خطأ أثناء التسجيل: {str(e)}'
+    
+    context = {
+        'submitted': submitted,
+        'error_message': error_message,
+    }
+    return render(request, 'frontend/reading_group.html', context)
+
+
 def parking_application(request):
     from .forms import ParkingApplicationForm
     from .models import ParkingApplication, DeanListStudent
@@ -587,6 +628,83 @@ def delete_all_parking_applications(request):
         count = ParkingApplication.objects.count()
         ParkingApplication.objects.all().delete()
         return JsonResponse({'success': True, 'message': f'{count} parking applications deleted successfully'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+
+@login_required
+def reading_group_management(request):
+    """
+    Manage reading group applications - view all applications with ability to delete
+    """
+    from .models import ReadingGroupApplication
+    
+    # Get all applications ordered by submission date (newest first)
+    applications = ReadingGroupApplication.objects.all().order_by('-submitted_at')
+    
+    # Check if user can delete applications
+    allowed_roles = ['PRESIDENT', 'VICE_PRESIDENT', 'SECRETARY']
+    can_delete = request.user.is_superuser or request.user.is_staff or request.user.role in allowed_roles
+    
+    # Calculate statistics
+    total_applications = applications.count()
+    committed_count = applications.filter(commitment_level='COMMITTED').count()
+    moderate_count = applications.filter(commitment_level='MODERATE').count()
+    not_committed_count = applications.filter(commitment_level='NOT_COMMITTED').count()
+    
+    context = {
+        'applications': applications,
+        'total_applications': total_applications,
+        'committed_count': committed_count,
+        'moderate_count': moderate_count,
+        'not_committed_count': not_committed_count,
+        'can_delete': can_delete,
+    }
+    
+    return render(request, 'frontend/reading_group_management.html', context)
+
+
+@login_required
+@require_POST
+def delete_reading_group_application(request, application_id):
+    """
+    Delete a specific reading group application - only for superstaff and specific roles
+    """
+    from .models import ReadingGroupApplication
+    
+    # Check if user has permission to delete applications
+    allowed_roles = ['PRESIDENT', 'VICE_PRESIDENT', 'SECRETARY']
+    if not (request.user.is_superuser or request.user.is_staff or request.user.role in allowed_roles):
+        return JsonResponse({'success': False, 'message': 'Insufficient permissions to delete applications'})
+    
+    try:
+        application = ReadingGroupApplication.objects.get(id=application_id)
+        student_name = application.name
+        application.delete()
+        return JsonResponse({'success': True, 'message': f'Application from {student_name} deleted successfully'})
+    except ReadingGroupApplication.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Application not found'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+
+@login_required
+@require_POST
+def delete_all_reading_group_applications(request):
+    """
+    Delete all reading group applications - only for superstaff and specific roles
+    """
+    from .models import ReadingGroupApplication
+    
+    # Check if user has permission
+    allowed_roles = ['PRESIDENT', 'VICE_PRESIDENT', 'SECRETARY']
+    if not (request.user.is_superuser or request.user.is_staff or request.user.role in allowed_roles):
+        return JsonResponse({'success': False, 'message': 'Insufficient permissions'})
+    
+    try:
+        count = ReadingGroupApplication.objects.count()
+        ReadingGroupApplication.objects.all().delete()
+        return JsonResponse({'success': True, 'message': f'{count} reading group applications deleted successfully'})
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)})
 

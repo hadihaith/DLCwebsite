@@ -443,3 +443,31 @@ class Attendance(models.Model):
 
     def __str__(self):
         return f"{self.student_name} - {self.event.title}"
+
+
+class ReadingGroupApplication(models.Model):
+    COMMITMENT_CHOICES = [
+        ('COMMITTED', 'ملتزم'),
+        ('MODERATE', 'نص نص'),
+        ('NOT_COMMITTED', 'مو ملتزم بس اسعى لانتظام بالقراءة'),
+    ]
+    
+    name = models.CharField(max_length=150, verbose_name='الاسم')
+    student_id = models.CharField(max_length=20, unique=True, verbose_name='الرقم الجامعي')
+    phone = models.CharField(max_length=15, verbose_name='رقم التواصل')
+    book_types = models.TextField(verbose_name='نوع الكتب اللي بيحب يقراها')
+    books_per_year = models.CharField(max_length=100, verbose_name='كم كتاب يقرأ تقريبًا بالسنة')
+    commitment_level = models.CharField(
+        max_length=20, 
+        choices=COMMITMENT_CHOICES, 
+        verbose_name='ما مدى التزامك بالقراءة'
+    )
+    submitted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-submitted_at']
+        verbose_name = 'طلب انضمام لمجموعة القراءة'
+        verbose_name_plural = 'طلبات الانضمام لمجموعة القراءة'
+
+    def __str__(self):
+        return f"{self.name} ({self.student_id})"

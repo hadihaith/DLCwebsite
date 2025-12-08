@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Application, ExchangeApplication, ExchangeNomination, PartnerUniversity, ParkingApplication, ExchangeProgramSettings, User, DeanListStudent, DeanList, Event, Attendance, EventSection
+from .models import Application, ExchangeApplication, ExchangeNomination, PartnerUniversity, ParkingApplication, ExchangeProgramSettings, User, DeanListStudent, DeanList, Event, Attendance, EventSection, ReadingGroupApplication
 
 # Register your models here.
 admin.site.register(Application)
@@ -7,6 +7,7 @@ admin.site.register(ExchangeApplication)
 admin.site.register(ExchangeNomination)
 admin.site.register(PartnerUniversity)
 admin.site.register(ParkingApplication)
+admin.site.register(ReadingGroupApplication)
 admin.site.register(ExchangeProgramSettings)
 admin.site.register(User)
 admin.site.register(DeanList)
